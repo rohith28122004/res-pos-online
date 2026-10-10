@@ -17,7 +17,7 @@ $version = (Select-String -Path pubspec.yaml -Pattern '^version:\s*(.+)$').Match
 $label = if ($signed) { 'release-signed' } else { 'debug-signed' }
 $dist = Join-Path $root 'dist'
 New-Item -ItemType Directory -Force $dist | Out-Null
-$out = Join-Path $dist "CafeDesk-$version-android-$label.apk"
+$out = Join-Path $dist "CafeDeskOnline-$version-android-$label.apk"
 Copy-Item 'build\app\outputs\flutter-apk\app-release.apk' $out -Force
 $hash = (Get-FileHash $out -Algorithm SHA256).Hash.ToLower()
 "$hash  $(Split-Path $out -Leaf)" | Set-Content -Encoding ascii "$out.sha256"

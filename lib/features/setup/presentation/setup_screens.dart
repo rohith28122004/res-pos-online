@@ -32,7 +32,7 @@ class WelcomeScreen extends ConsumerWidget {
               children: [
                 const Icon(Icons.local_cafe_outlined, size: 56, color: AppColors.accent),
                 const SizedBox(height: 12),
-                Text('Welcome to CaféDesk', style: t.headlineMedium, textAlign: TextAlign.center),
+                Text('Welcome to CaféDesk Online', style: t.headlineMedium, textAlign: TextAlign.center),
                 const SizedBox(height: 8),
                 Text(
                   'Offline billing for cafés and small restaurants. Works without internet.',

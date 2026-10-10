@@ -15,7 +15,7 @@ class CafeDeskApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appControllerProvider);
     final Widget home = switch (state) {
-      AppLoading() => const Scaffold(body: LoadingView(label: 'Opening CaféDesk…')),
+      AppLoading() => const Scaffold(body: LoadingView(label: 'Opening CaféDesk Online…')),
       AppAlreadyRunning() => const _AlreadyRunning(),
       AppChooseMode() => const WelcomeScreen(),
       AppNeedsSetup() => const SetupWizard(),
@@ -25,7 +25,7 @@ class CafeDeskApp extends ConsumerWidget {
       ),
     };
     return MaterialApp(
-      title: 'CaféDesk',
+      title: 'CaféDesk Online',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
       home: home,
@@ -51,10 +51,10 @@ class _AlreadyRunning extends StatelessWidget {
   Widget build(BuildContext context) => const Scaffold(
     body: EmptyState(
       icon: Icons.copy_all_outlined,
-      title: 'CaféDesk is already open',
+      title: 'CaféDesk Online is already open',
       message:
-          'Only one CaféDesk window can use the data on this computer at a time. '
-          'Switch to the window that is already open, or close it and start CaféDesk again.',
+          'Only one CaféDesk Online window can use the data on this computer at a time. '
+          'Switch to the window that is already open, or close it and start CaféDesk Online again.',
     ),
   );
 }

@@ -1,18 +1,29 @@
-# CaféDesk — offline café POS
+# CaféDesk Online — connected café POS
 
-Offline billing for cafés and small restaurants: orders, kitchen tickets (KOT), receipts,
-cash/UPI/card payments, refunds, expenses, shifts, backups and a sales dashboard. One Flutter
-codebase for **Android** (phones/tablets) and **Windows** desktop. **No internet, no cloud
-account, no subscription.** "CaféDesk" is a working name; restaurant branding is configurable.
+CaféDesk Online extends the offline CaféDesk POS (`res-pos`, see `docs/BASELINE.md`) for cafés
+that want waiters and the kitchen on their own phones or tablets:
 
-> **Each device is a separate installation.** An Android tablet and a Windows PC running
-> CaféDesk do **not** share orders or sales — there is no live sync. Data moves between devices
-> only by restoring a backup, which **replaces** the receiving device's data.
+* **POS host (Windows):** the main till. It keeps every offline feature below and is the only
+  place where orders are accepted, kitchen tickets are created, bills are finalized and
+  receipts are printed. It keeps billing even with no internet.
+* **Waiter phones (Android):** take table orders and send them to the kitchen through the host.
+* **Kitchen display (Android phone/tablet):** see accepted tickets and mark them preparing /
+  ready.
+* **Cloud relay (Cloudflare, optional):** reaches the host when a phone is off the café Wi-Fi,
+  keeps an off-site copy of accepted sales for owner reports, and stores optional encrypted
+  backups. It never finalizes a bill itself.
+
+Phones talk to the host over the café Wi-Fi using TLS with a certificate pinned when the phone
+is paired, and fall back to the cloud relay when the Wi-Fi path is down. The scope and rules
+are in `CONNECTED_BUILD_SPEC.md`; status is in `docs/PROGRESS.md`.
+
+CaféDesk Online installs **next to** the offline CaféDesk without touching it: different app
+ID, Windows program, data folder and database files.
 
 Do not put the database on OneDrive, Dropbox or a network share. It lives in the app's
 private data folder.
 
-## Features
+## Features inherited from offline CaféDesk
 
 * First-run setup (no default accounts), owner recovery code, owner / cashier / kitchen roles
 * Email + password sign-in; only an owner creates accounts (Staff → Create account) and a
@@ -57,16 +68,19 @@ Settings.
 Builds:
 
 ```powershell
-.\scripts\build_android.ps1      # dist\CafeDesk-<ver>-android-<debug|release>-signed.apk
-.\scripts\build_windows.ps1      # dist\CafeDesk-<ver>-windows-x64-unsigned.zip
+.\scripts\build_android.ps1      # dist\CafeDeskOnline-<ver>-android-<debug|release>-signed.apk
+.\scripts\build_windows.ps1      # dist\CafeDeskOnline-<ver>-windows-x64-unsigned.zip
 ```
 
 ## Documentation
 
 | Doc | What |
 |---|---|
-| `OFFLINE_POS_BUILD_SPEC.md` | the specification / acceptance contract |
-| `docs/PROGRESS.md` | status, checks run, assumptions, open items |
+| `CONNECTED_BUILD_SPEC.md` | the connected product's specification / acceptance contract |
+| `docs/PROGRESS.md` | connected build status, checks run, assumptions, open items |
+| `docs/BASELINE.md` | source repo and commit, identity changes, baseline checks |
+| `docs/OFFLINE_POS_BUILD_SPEC.md` | historical: the offline specification |
+| `docs/OFFLINE_PROGRESS.md` | historical: the offline build log |
 | `docs/ARCHITECTURE.md` | layers, principles, startup, folder map |
 | `docs/DATA_MODEL.md` | tables, constraints, migrations |
 | `docs/PRICING.md` | calculation order, tax, discounts, refunds |

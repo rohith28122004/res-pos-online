@@ -46,10 +46,10 @@ class AppPaths {
   final Directory backups;
 
   File get modeFile => File(p.join(root.path, 'mode.json'));
-  File get lockFile => File(p.join(root.path, 'cafedesk.lock'));
+  File get lockFile => File(p.join(root.path, 'cafedesk_online.lock'));
   Directory get work => Directory(p.join(root.path, 'work'));
   File databaseFile(AppMode mode) =>
-      File(p.join(root.path, mode == AppMode.demo ? 'cafedesk_demo.sqlite' : 'cafedesk.sqlite'));
+      File(p.join(root.path, mode == AppMode.demo ? 'cafedesk_online_demo.sqlite' : 'cafedesk_online.sqlite'));
 
   static Future<AppPaths> resolve() async {
     final support = await getApplicationSupportDirectory();

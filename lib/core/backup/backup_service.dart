@@ -197,7 +197,7 @@ class BackupService {
         ..addFile(ArchiveFile.bytes(_dbName, dbBytes));
       final zipped = ZipEncoder().encodeBytes(archive);
       final safeName = installation.isDemo ? 'demo' : installation.receiptPrefix.toLowerCase();
-      final target = File(p.join(dir.path, 'cafedesk-$safeName-$stamp-$reason.$backupExtension'));
+      final target = File(p.join(dir.path, 'cafedesk-online-$safeName-$stamp-$reason.$backupExtension'));
       final partial = File('${target.path}.partial');
       await partial.writeAsBytes(zipped, flush: true);
       await partial.rename(target.path);

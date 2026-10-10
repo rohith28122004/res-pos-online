@@ -27,7 +27,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.cafedesk.cafedesk"
+        applicationId = "com.cafedesk.online"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

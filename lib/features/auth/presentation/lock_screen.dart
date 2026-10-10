@@ -83,7 +83,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                         children: [
                           const Icon(Icons.lock_outline, size: 40, color: AppColors.accent),
                           const SizedBox(height: 8),
-                          Text(settings?.name ?? 'CaféDesk', style: t.headlineSmall, textAlign: TextAlign.center),
+                          Text(settings?.name ?? 'CaféDesk Online', style: t.headlineSmall, textAlign: TextAlign.center),
                           const SizedBox(height: 4),
                           Text('Sign in to use the till', style: t.bodyLarge, textAlign: TextAlign.center),
                           const SizedBox(height: 20),
