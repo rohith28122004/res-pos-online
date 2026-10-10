@@ -7,6 +7,7 @@ import '../../../core/database/db_errors.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../core/security/permissions.dart';
 import '../../../core/service_context.dart';
+import '../../../core/sync/host_outbox.dart';
 import '../../bills/domain/payment_method.dart';
 import '../../orders/domain/order_models.dart';
 
@@ -98,6 +99,7 @@ class ShiftService {
           entityId: id,
           details: {'openingFloat': openingFloat},
         );
+        await ctx.outbox.changed(Aggregate.shift, id);
       });
     } on Object catch (e) {
       if (isUniqueViolation(e)) throw const ConflictException('A shift is already open');
@@ -143,6 +145,7 @@ class ShiftService {
         entityId: shift.id,
         details: {'amount': amount, 'reason': why},
       );
+      await ctx.outbox.changed(Aggregate.cashMovement, id);
     });
     return id;
   }
@@ -263,6 +266,7 @@ class ShiftService {
           'carriedOpenOrders': s.openOrders,
         },
       );
+      await ctx.outbox.changed(Aggregate.shift, shift.id);
     });
     return closureId;
   }
@@ -295,6 +299,7 @@ class ShiftService {
           approval: approval,
           details: {'reason': why},
         );
+        await ctx.outbox.changed(Aggregate.shift, shiftId);
       });
     } on Object catch (e) {
       if (isUniqueViolation(e)) throw const ConflictException('Close the current shift first');

@@ -7,6 +7,7 @@ import '../../../core/database/db_errors.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../core/security/password_hasher.dart';
 import '../../../core/security/permissions.dart';
+import '../../../core/protocol/protocol.dart';
 import '../../../core/service_context.dart';
 
 class StaffSummary {
@@ -247,6 +248,15 @@ class AuthService {
             },
           },
         );
+        if (newRole != before.role || newDisabled != before.disabled) {
+          await ctx.outbox.emit(
+            type: EventType.staffAccessChanged,
+            aggregateType: 'staff',
+            aggregateId: staffId,
+            payload: {'staffId': staffId, 'role': newRole, 'disabled': newDisabled},
+          );
+          await revokeSessionsOf(staffId, newDisabled ? 'account disabled' : 'role changed');
+        }
       });
     } on Object catch (err) {
       if (isUniqueViolation(err)) throw ConflictException('Another account already uses $newEmail');
@@ -260,8 +270,31 @@ class AuthService {
     actor.require(Permission.manageStaff);
     final row = await _staff(staffId);
     PasswordHasher.validatePassword(newPassword, email: row.email);
-    await _setPassword(staffId, newPassword, mustChange: staffId != actor.staffId);
-    await ctx.audit(actor, 'staff.password_reset', entityType: 'staff', entityId: staffId);
+    await _db.transaction(() async {
+      await _setPassword(staffId, newPassword, mustChange: staffId != actor.staffId);
+      await ctx.audit(actor, 'staff.password_reset', entityType: 'staff', entityId: staffId);
+      await revokeSessionsOf(staffId, 'password reset');
+    });
+  }
+
+  /// Ends every live device session of [staffId] (paired phones must sign in
+  /// again). Call inside a transaction.
+  Future<void> revokeSessionsOf(String staffId, String reason) async {
+    final live = await (_db.select(
+      _db.staffSessions,
+    )..where((s) => s.staffId.equals(staffId) & s.revokedAt.isNull())).get();
+    final now = ctx.nowMs();
+    for (final s in live) {
+      await (_db.update(_db.staffSessions)..where((x) => x.id.equals(s.id))).write(
+        StaffSessionsCompanion(revokedAt: Value(now), revokedReason: Value(reason)),
+      );
+      await ctx.outbox.emit(
+        type: EventType.sessionRevoked,
+        aggregateType: 'staff_session',
+        aggregateId: s.id,
+        payload: {'sid': s.id, 'staffId': staffId, 'revokedAt': now},
+      );
+    }
   }
 
   /// Anyone can change their own password by proving the current one.

@@ -8,6 +8,7 @@ import '../../../core/printing/documents/print_documents.dart';
 import '../../../core/printing/queue/print_job_writer.dart';
 import '../../../core/security/permissions.dart';
 import '../../../core/service_context.dart';
+import '../../../core/sync/host_outbox.dart';
 import '../../../core/time/business_time.dart';
 import '../../bills/application/bill_service.dart';
 import '../../bills/domain/payment_method.dart';
@@ -407,6 +408,7 @@ class RefundService {
             'tenders': tenders,
           },
         );
+        await ctx.outbox.changed(Aggregate.refund, refundId);
 
         final settings = await ctx.settings();
         if (settings.autoPrintReceipt) {

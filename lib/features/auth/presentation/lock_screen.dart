@@ -83,7 +83,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                         children: [
                           const Icon(Icons.lock_outline, size: 40, color: AppColors.accent),
                           const SizedBox(height: 8),
-                          Text(settings?.name ?? 'CaféDesk Online', style: t.headlineSmall, textAlign: TextAlign.center),
+                          Text(
+                            settings?.name ?? 'CaféDesk Online',
+                            style: t.headlineSmall,
+                            textAlign: TextAlign.center,
+                          ),
                           const SizedBox(height: 4),
                           Text('Sign in to use the till', style: t.bodyLarge, textAlign: TextAlign.center),
                           const SizedBox(height: 20),
@@ -153,8 +157,8 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                           const SizedBox(height: 16),
                           if (isDemo)
                             Text(
-                              'Demo sign-in: ${DemoLogins.ownerEmail}, ${DemoLogins.cashierEmail} or '
-                              '${DemoLogins.kitchenEmail} — password ${DemoLogins.password}',
+                              'Demo sign-in: ${DemoLogins.ownerEmail}, ${DemoLogins.cashierEmail}, '
+                              '${DemoLogins.waiterEmail} or ${DemoLogins.kitchenEmail} — password ${DemoLogins.password}',
                               style: t.bodySmall,
                               textAlign: TextAlign.center,
                             ),
@@ -180,6 +184,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     StaffRole.owner => Icons.workspace_premium_outlined,
     StaffRole.cashier => Icons.point_of_sale_outlined,
     StaffRole.kitchen => Icons.soup_kitchen_outlined,
+    StaffRole.waiter => Icons.room_service_outlined,
   };
 }
 

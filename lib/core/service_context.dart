@@ -5,6 +5,7 @@ import 'database/app_database.dart';
 import 'errors/app_exception.dart';
 import 'money/money.dart';
 import 'security/permissions.dart';
+import 'sync/host_outbox.dart';
 import 'time/business_time.dart';
 
 /// Time-ordered UUIDs (v7) for primary keys.
@@ -21,6 +22,9 @@ class ServiceContext {
   final AppDatabase db;
   final Clock clock;
   final IdGenerator ids;
+
+  /// Event outbox; services report changes here inside their transactions.
+  late final HostOutbox outbox = HostOutbox(this);
 
   DateTime now() => clock.nowUtc();
   int nowMs() => clock.nowUtc().millisecondsSinceEpoch;

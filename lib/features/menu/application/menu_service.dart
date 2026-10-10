@@ -7,6 +7,7 @@ import '../../../core/errors/app_exception.dart';
 import '../../../core/money/money.dart';
 import '../../../core/security/permissions.dart';
 import '../../../core/service_context.dart';
+import '../../../core/sync/host_outbox.dart';
 
 class MenuVariant {
   const MenuVariant({required this.id, required this.name, required this.price});
@@ -175,6 +176,7 @@ class MenuService {
           .into(_db.categories)
           .insert(CategoriesCompanion.insert(id: id, name: n, sortOrder: Value(count), updatedAt: ctx.nowMs()));
       await ctx.audit(actor, 'menu.category_created', entityType: 'category', entityId: id, details: {'name': n});
+      await ctx.outbox.changed(Aggregate.menu, 'menu');
     });
     return id;
   }
@@ -188,6 +190,7 @@ class MenuService {
       )..where((c) => c.id.equals(id))).write(CategoriesCompanion(name: Value(n), updatedAt: Value(ctx.nowMs())));
       if (updated == 0) throw const NotFoundException('Category not found');
       await ctx.audit(actor, 'menu.category_renamed', entityType: 'category', entityId: id, details: {'name': n});
+      await ctx.outbox.changed(Aggregate.menu, 'menu');
     });
   }
 
@@ -203,6 +206,7 @@ class MenuService {
         entityType: 'category',
         entityId: id,
       );
+      await ctx.outbox.changed(Aggregate.menu, 'menu');
     });
   }
 
@@ -214,6 +218,7 @@ class MenuService {
           _db.categories,
         )..where((c) => c.id.equals(orderedIds[i]))).write(CategoriesCompanion(sortOrder: Value(i)));
       }
+      await ctx.outbox.changed(Aggregate.menu, 'menu');
     });
   }
 
@@ -390,6 +395,7 @@ class MenuService {
           'after': {'price': basePrice, 'variants': _priceList(input.variants.map((v) => (v.name.trim(), v.price)))},
         },
       );
+      await ctx.outbox.changed(Aggregate.menu, 'menu');
       return id;
     });
   }
@@ -410,6 +416,7 @@ class MenuService {
         entityType: 'menu_item',
         entityId: itemId,
       );
+      await ctx.outbox.changed(Aggregate.menu, 'menu');
     });
   }
 
@@ -425,6 +432,7 @@ class MenuService {
         entityType: 'menu_item',
         entityId: itemId,
       );
+      await ctx.outbox.changed(Aggregate.menu, 'menu');
     });
   }
 

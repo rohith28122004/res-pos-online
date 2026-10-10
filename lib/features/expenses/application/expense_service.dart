@@ -4,6 +4,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../core/security/permissions.dart';
 import '../../../core/service_context.dart';
+import '../../../core/sync/host_outbox.dart';
 import '../../../core/time/business_time.dart';
 
 const expenseCategorySuggestions = [
@@ -68,6 +69,7 @@ class ExpenseService {
         entityId: id,
         details: {'category': cat, 'amount': amount, 'drawer': paidFromDrawer},
       );
+      await ctx.outbox.changed(Aggregate.expense, id);
     });
     return id;
   }
@@ -99,6 +101,7 @@ class ExpenseService {
         entityId: id,
         details: {'reason': why, 'amount': e.amount},
       );
+      await ctx.outbox.changed(Aggregate.expense, id);
     });
   }
 

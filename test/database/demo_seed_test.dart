@@ -19,7 +19,7 @@ void main() {
     final inst = await db.select(db.installation).getSingle();
     expect(inst.isDemo, isTrue);
     expect(inst.receiptPrefix, 'DEMO');
-    expect((await db.select(db.staff).get()).length, 3);
+    expect((await db.select(db.staff).get()).length, 4);
     // The demo sign-ins shown on the demo lock screen work, with no forced change.
     final auth = AuthService(ctx, hasher: fastHasher);
     for (final role in StaffRole.values) {

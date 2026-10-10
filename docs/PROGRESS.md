@@ -21,14 +21,20 @@ external dependency · ⬜ not started
   spec and progress kept as history
 
 ### 2. Protocol, waiter role, migrations, command dispatcher, outbox
-- ⬜ Versioned protocol types (command / result / event), canonical body hash
-- ⬜ Waiter role with narrow permissions
-- ⬜ Schema v4: host identity, devices, pairing codes, staff sessions, command receipts,
-  host event outbox, sync checkpoints, kitchen ticket revision
-- ⬜ Events written in the same transaction as orders, tickets, bills, refunds, expenses,
-  shifts, cash movements
-- ⬜ Idempotent command dispatcher (same id + same body → stored result; same id + other body →
-  rejected; stale revision → conflict with current state; atomic table opening)
+- ✅ `docs/PROTOCOL.md` v1; `lib/core/protocol/` (canonical JSON, command/result/error types)
+- 🟡 Canonical JSON cross-check with the cloud: Dart side tested; the shared vectors test is
+  skipped until `protocol/vectors/canonical_hash.json` exists (cloud work in progress)
+- ✅ Waiter role: takes orders only; any discount needs owner approval; service/delivery
+  charges need the new `discount` permission; no payment, refund, staff or reports
+- ✅ Schema v4 (`from3To4`): host identity (one row), paired devices, pairing codes, staff
+  sessions, command receipts, host event outbox, sync checkpoints, kitchen ticket revision
+- ✅ Events written in the same transaction as orders, tickets, bills, refunds, expenses,
+  shifts, cash movements, menu and table edits, staff access changes and session revocations
+  (`lib/core/sync/host_outbox.dart`); gap-free sequence per epoch
+- ✅ Idempotent command dispatcher (`lib/core/host/command_dispatcher.dart`): same id + same
+  body → stored result; same id + other body → `COMMAND_ID_REUSED`; stale revision →
+  `STALE_REVISION` with current state; atomic table opening; host-side price/availability
+  check; one ticket and one KOT print job per command; forward-only kitchen status
 
 ### 3. LAN host, pairing, sessions, client persistence
 - ⬜ Host keys and self-signed TLS certificate; private keys in OS secure storage
@@ -66,7 +72,7 @@ external dependency · ⬜ not started
 |---|---|
 | `dart format` | clean |
 | `flutter analyze` | no issues |
-| Flutter tests | 168 passed (baseline suite, after identity changes) |
+| Flutter tests | 193: 192 passed, 1 skipped (shared vectors file pending) |
 | Cloud tests | not started |
 | Android / Windows builds | not built yet in this repo |
 | Physical devices / printers | not run |
@@ -79,6 +85,14 @@ external dependency · ⬜ not started
   created the private `res-pos-online` repo and pushed `main`. Baseline checks: format 0
   changed, analyze no issues, 168/168 tests. Separate app identity applied; re-checked:
   analyze no issues, 168/168 tests.
+- 2026-10-11 — Phase 2: protocol types, waiter role, schema v4, transactional outbox, command
+  dispatcher. New tests: `test/connected/` (outbox: same-transaction events, gap-free
+  sequence after a rolled-back sale, financial payloads, session revocation; dispatcher:
+  duplicate command → one order/ticket/print job, id reuse, table race, stored rejections,
+  price/availability, stale revisions, approvals, forward-only tickets, roles/devices/forged
+  actor/epoch, version and malformed bodies; canonical JSON) and a populated v3 → v4 upgrade
+  test. Two older migration tests now migrate to the latest schema (services need it).
+  `flutter analyze` no issues; 192 passed, 1 skipped.
 
 ## Assumptions and decisions
 

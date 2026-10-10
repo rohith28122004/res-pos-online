@@ -9,6 +9,7 @@ import '../../../core/printing/documents/print_documents.dart';
 import '../../../core/printing/queue/print_job_writer.dart';
 import '../../../core/security/permissions.dart';
 import '../../../core/service_context.dart';
+import '../../../core/sync/host_outbox.dart';
 import '../../settings/application/settings_service.dart';
 import '../domain/order_models.dart';
 
@@ -192,6 +193,7 @@ class OrderService {
           entityId: id,
           details: {'orderNo': orderNo, 'type': type.code, 'table': tableLabel},
         );
+        await ctx.outbox.changed(Aggregate.order, id);
       });
     } on Object catch (e) {
       if (isUniqueViolation(e)) throw const ConflictException('That table already has an open order');
@@ -318,6 +320,7 @@ class OrderService {
     });
   }
 
+  /// Bumps the order revision and records the change for the event outbox.
   Future<void> _touch(OrderRow order) async {
     await (_db.update(_db.orders)..where((o) => o.id.equals(order.id))).write(
       OrdersCompanion(
@@ -325,6 +328,7 @@ class OrderService {
         revision: Value(order.revision + 1),
       ),
     );
+    await ctx.outbox.changed(Aggregate.order, order.id);
   }
 
   Future<(OrderLineRow, OrderRow)> _lineForEdit(String lineId) async {
@@ -428,6 +432,7 @@ class OrderService {
         ),
       );
       await _checkDiscountLimit(actor, order.id, approval);
+      await _touch(order);
       await ctx.audit(
         actor,
         'order.line_discount',
@@ -467,6 +472,7 @@ class OrderService {
         approval: approval,
         details: {'type': discount.type.name, 'value': discount.value, 'reason': reason},
       );
+      await ctx.outbox.changed(Aggregate.order, orderId);
     });
   }
 
@@ -477,7 +483,12 @@ class OrderService {
     final result = engine.price(pricingInputFor(order, await _lines(orderId)));
     final limit = (await ctx.settings()).cashierDiscountLimitBps;
     String? approvedBy;
-    if (result.discountExceeds(limit)) {
+    // Roles without the discount permission (waiters) need approval for any
+    // discount; others only above the cashier limit.
+    final needsApproval = actor.can(Permission.discount)
+        ? result.discountExceeds(limit)
+        : result.discountEnteredTotal > 0;
+    if (needsApproval) {
       if (!actor.isOwner) {
         await ctx.verifyApproval(approval, 'give a discount above the cashier limit');
         approvedBy = approval!.ownerId;
@@ -491,7 +502,7 @@ class OrderService {
   }
 
   Future<void> setDeliveryCharge(Actor actor, String orderId, int amount) async {
-    actor.require(Permission.takeOrders);
+    actor.require(Permission.discount);
     if (amount < 0) throw const ValidationException('Delivery charge cannot be negative');
     await _db.transaction(() async {
       final order = await _openOrder(orderId);
@@ -512,11 +523,12 @@ class OrderService {
         entityId: orderId,
         details: {'amount': amount},
       );
+      await ctx.outbox.changed(Aggregate.order, orderId);
     });
   }
 
   Future<void> setServiceCharge(Actor actor, String orderId, {required bool enabled}) async {
-    actor.require(Permission.takeOrders);
+    actor.require(Permission.discount);
     await _db.transaction(() async {
       final order = await _openOrder(orderId);
       final settings = await ctx.settings();
@@ -533,6 +545,7 @@ class OrderService {
         entityType: 'order',
         entityId: orderId,
       );
+      await ctx.outbox.changed(Aggregate.order, orderId);
     });
   }
 
@@ -552,6 +565,7 @@ class OrderService {
           revision: Value(order.revision + 1),
         ),
       );
+      await ctx.outbox.changed(Aggregate.order, orderId);
     });
   }
 
@@ -588,6 +602,7 @@ class OrderService {
           entityId: orderId,
           details: {'from': order.tableLabel, 'to': label},
         );
+        await ctx.outbox.changed(Aggregate.order, orderId);
       });
     } on Object catch (e) {
       if (isUniqueViolation(e)) throw const ConflictException('That table already has an open order');
@@ -642,6 +657,7 @@ class OrderService {
         approval: approval,
         details: {'orderNo': order.orderNo, 'reason': why, 'itemsSentToKitchen': sentLines.length},
       );
+      await ctx.outbox.changed(Aggregate.order, orderId);
     });
   }
 
@@ -766,6 +782,9 @@ class OrderService {
         createdBy: actor.staffId,
       );
     }
+    // The order's sent quantities changed too.
+    await ctx.outbox.changed(Aggregate.ticket, ticketId);
+    await ctx.outbox.changed(Aggregate.order, order.id);
     return ticketId;
   }
 
@@ -851,8 +870,13 @@ class OrderService {
       if (t == null) throw const NotFoundException('Kitchen ticket not found');
       if (t.status == status) return;
       await (_db.update(_db.kitchenTickets)..where((k) => k.id.equals(ticketId))).write(
-        KitchenTicketsCompanion(status: Value(status), updatedAt: Value(ctx.nowMs())),
+        KitchenTicketsCompanion(
+          status: Value(status),
+          updatedAt: Value(ctx.nowMs()),
+          revision: Value(t.revision + 1),
+        ),
       );
+      await ctx.outbox.changed(Aggregate.ticket, ticketId);
       await ctx.audit(
         actor,
         'kot.status',

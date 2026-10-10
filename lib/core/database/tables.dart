@@ -283,6 +283,10 @@ class KitchenTickets extends Table {
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
 
+  /// Added in schema v4: bumped on every status change, so a queued remote
+  /// status update with an older revision is refused instead of regressing.
+  IntColumn get revision => integer().withDefault(const Constant(1))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -695,4 +699,171 @@ class CompletedOperations extends Table {
 
   @override
   Set<Column> get primaryKey => {operationKey};
+}
+
+// ---- Connected mode (schema v4) ---------------------------------------------
+// The POS host's identity, paired devices, staff sessions, command receipts and
+// the event outbox. See docs/PROTOCOL.md and docs/CONNECTED_ARCHITECTURE.md.
+
+/// One row: who this POS host is to its paired devices and the cloud. Keys and
+/// credentials are NOT here — private keys and the cloud credential live in the
+/// operating system's secure storage.
+@DataClassName('HostIdentityRow')
+class HostIdentity extends Table {
+  IntColumn get singleton => integer().withDefault(const Constant(1)).check(singleton.equals(1))();
+  TextColumn get restaurantId => text()();
+  TextColumn get hostDeviceId => text()();
+
+  /// Starts at 1; +1 after every restore so stale commands and duplicate
+  /// uploads from before the restore can never be applied.
+  IntColumn get hostEpoch => integer()();
+
+  /// First event sequence of the current epoch.
+  IntColumn get epochStartSequence => integer()();
+  IntColumn get epochStartedAt => integer()();
+
+  /// Self-signed TLS certificate (PEM) and the SHA-256 of its DER, which
+  /// devices pin at pairing.
+  TextColumn get tlsCertPem => text()();
+  TextColumn get tlsCertSha256 => text()();
+
+  /// Public halves of the host keys (b64url). Private halves: secure storage.
+  TextColumn get signingPublicKey => text()();
+  TextColumn get sealPublicKey => text()();
+  IntColumn get lanPort => integer().withDefault(const Constant(47821))();
+  BoolColumn get lanEnabled => boolean().withDefault(const Constant(false))();
+
+  /// Cloud relay URL once enrolled; null = not enrolled.
+  TextColumn get cloudUrl => text().nullable()();
+  IntColumn get cloudEnrolledAt => integer().nullable()();
+
+  /// Set after a restore: devices and the cloud stay disconnected until the
+  /// owner reconnects (new epoch registered, old queued work quarantined).
+  BoolColumn get reconcileRequired => boolean().withDefault(const Constant(false))();
+  IntColumn get createdAt => integer()();
+  IntColumn get updatedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {singleton};
+}
+
+/// Waiter and kitchen devices paired with this host.
+@DataClassName('PairedDeviceRow')
+class PairedDevices extends Table {
+  TextColumn get id => text()();
+  TextColumn get role => text()();
+  TextColumn get name => text()();
+  TextColumn get platform => text().nullable()();
+  TextColumn get appVersion => text().nullable()();
+
+  /// sha256hex of the device credential; the credential itself is only on the
+  /// device.
+  TextColumn get credentialHash => text().unique()();
+  IntColumn get createdAt => integer()();
+  TextColumn get pairedBy => text()();
+  TextColumn get pairedByName => text()();
+  IntColumn get lastSeenAt => integer().nullable()();
+  IntColumn get revokedAt => integer().nullable()();
+  TextColumn get revokedBy => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Short-lived, single-use pairing codes (hashed).
+@DataClassName('PairingCodeRow')
+class PairingCodes extends Table {
+  TextColumn get id => text()();
+  TextColumn get codeHash => text().unique()();
+  TextColumn get role => text()();
+  TextColumn get deviceName => text()();
+  TextColumn get createdBy => text()();
+  IntColumn get createdAt => integer()();
+  IntColumn get expiresAt => integer()();
+  IntColumn get usedAt => integer().nullable()();
+  TextColumn get usedByDeviceId => text().nullable()();
+  IntColumn get cancelledAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Staff signed in on a paired device. The token is host-signed; this row lets
+/// the host revoke it and check it is still live.
+@DataClassName('StaffSessionRow')
+@TableIndex(name: 'staff_sessions_staff', columns: {#staffId})
+@TableIndex(name: 'staff_sessions_device', columns: {#deviceId})
+class StaffSessions extends Table {
+  TextColumn get id => text()();
+  TextColumn get staffId => text().references(Staff, #id)();
+  TextColumn get deviceId => text().references(PairedDevices, #id)();
+  IntColumn get createdAt => integer()();
+  IntColumn get expiresAt => integer()();
+  IntColumn get lastSeenAt => integer().nullable()();
+  IntColumn get revokedAt => integer().nullable()();
+  TextColumn get revokedReason => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Every remote command the host decided, with the hash of its exact body.
+/// Written in the same transaction as the business change.
+@DataClassName('CommandReceiptRow')
+@TableIndex(name: 'command_receipts_received', columns: {#receivedAt})
+class CommandReceipts extends Table {
+  TextColumn get commandId => text()();
+  TextColumn get bodyHash => text()();
+  TextColumn get action => text()();
+  TextColumn get deviceId => text()();
+  TextColumn get staffId => text()();
+  IntColumn get hostEpoch => integer()();
+  TextColumn get state => text()();
+  TextColumn get resultJson => text()();
+  IntColumn get receivedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {commandId};
+}
+
+/// The event outbox: one row per committed change, written in the same
+/// transaction. Gap-free sequence per epoch. Immutable once written.
+@DataClassName('HostEventRow')
+@TableIndex(name: 'host_events_event_id', columns: {#eventId}, unique: true)
+@TableIndex(name: 'host_events_cloud_pending', columns: {#cloudAckedAt})
+class HostEvents extends Table {
+  IntColumn get hostEpoch => integer()();
+  IntColumn get sequence => integer()();
+  TextColumn get eventId => text()();
+  TextColumn get type => text()();
+  TextColumn get aggregateType => text()();
+  TextColumn get aggregateId => text()();
+  IntColumn get revision => integer()();
+  IntColumn get committedAt => integer()();
+  TextColumn get businessDate => text().nullable()();
+
+  /// 'devices' (devices + cloud) or 'cloud' (cloud only).
+  TextColumn get audience => text()();
+
+  /// The complete event envelope, canonical JSON.
+  TextColumn get eventJson => text()();
+  TextColumn get contentHash => text()();
+  IntColumn get cloudAckedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {hostEpoch, sequence};
+}
+
+/// Progress markers for background sync work (e.g. cloud upload cursor).
+@DataClassName('SyncCheckpointRow')
+class SyncCheckpoints extends Table {
+  TextColumn get name => text()();
+  IntColumn get hostEpoch => integer()();
+  IntColumn get sequence => integer()();
+  IntColumn get updatedAt => integer()();
+  IntColumn get lastSuccessAt => integer().nullable()();
+  TextColumn get lastError => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {name};
 }

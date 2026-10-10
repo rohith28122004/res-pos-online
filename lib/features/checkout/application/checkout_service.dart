@@ -8,6 +8,7 @@ import '../../../core/printing/documents/print_documents.dart';
 import '../../../core/printing/queue/print_job_writer.dart';
 import '../../../core/security/permissions.dart';
 import '../../../core/service_context.dart';
+import '../../../core/sync/host_outbox.dart';
 import '../../bills/application/bill_service.dart';
 import '../../bills/domain/payment_method.dart';
 import '../../orders/domain/order_models.dart';
@@ -293,6 +294,8 @@ class CheckoutService {
             'payments': {for (final t in tenders) t.method.code: t.applied},
           },
         );
+        await ctx.outbox.changed(Aggregate.order, order.id);
+        await ctx.outbox.changed(Aggregate.bill, billId);
 
         var jobIds = <String>[];
         if (settings.autoPrintReceipt) {

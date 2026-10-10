@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'generated/schema.dart';
 import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
+import 'generated/schema_v3.dart' as v3;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -78,7 +79,8 @@ void main() {
     await old.close();
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 2);
+    // The app always runs the whole chain, so migrate to the latest schema.
+    await verifier.migrateAndValidate(db, AppDatabase.latestSchemaVersion);
 
     final bills = await db.select(db.bills).get();
     expect(bills.single.receiptNo, 'OLD-000001');
@@ -130,7 +132,7 @@ void main() {
     await old.close();
 
     final db = AppDatabase(schema.newConnection());
-    await verifier.migrateAndValidate(db, 3);
+    await verifier.migrateAndValidate(db, AppDatabase.latestSchemaVersion);
     final staff = await db.select(db.staff).get();
     expect(staff.length, 2);
     for (final s in staff) {
@@ -149,6 +151,68 @@ void main() {
     await auth.updateStaff(owner, 'cashier-1', email: 'cashier@old.cafe');
     await auth.resetPassword(owner, 'cashier-1', 'start-pass-1');
     expect((await auth.login('cashier@old.cafe', 'start-pass-1')).mustChangePassword, isTrue);
+    await db.close();
+  });
+
+  test('v3 → v4 (connected) keeps sales, open orders and tickets; new tables start empty', () async {
+    final schema = await verifier.schemaAt(3);
+    final old = v3.DatabaseAtV3(schema.newConnection());
+    const now = 1759638600000;
+    final statements = <String>[
+      "INSERT INTO installation (singleton, installation_id, receipt_prefix, is_demo, created_at, created_by_app_version) VALUES (1, 'inst-1', 'OLD', 0, $now, '1.0.0')",
+      "INSERT INTO sequences (name, next_value) VALUES ('receipt', 2), ('order', 3), ('kot', 2), ('refund', 1)",
+      "INSERT INTO restaurant_settings (singleton, name, address, currency_code, time_zone, cutoff_minutes, receipt_footer, cashier_discount_limit_bps, service_charge_bps, delivery_charge_default, rounding_unit, lock_timeout_minutes, kot_show_prices, auto_print_receipt, auto_print_kot, backup_interval_hours, backup_retention, setup_completed_at, updated_at, version) "
+          "VALUES (1, 'Old Café', 'Somewhere', 'INR', 'Asia/Kolkata', 240, 'Thanks', 1000, 0, 0, 0, 5, 0, 1, 1, 24, 14, $now, $now, 1)",
+      "INSERT INTO staff (id, name, role, pin_hash, email, password_hash, must_change_password, disabled, failed_attempts, created_at, updated_at) VALUES ('owner-1', 'Owner', 'owner', '', 'owner@old.cafe', 'x', 0, 0, 0, $now, $now)",
+      "INSERT INTO categories (id, name, sort_order, archived, updated_at) VALUES ('cat-1', 'Coffee', 0, 0, $now)",
+      "INSERT INTO menu_items (id, category_id, name, price, available, archived, sort_order, updated_at) VALUES ('item-1', 'cat-1', 'Coffee', 10000, 1, 0, 0, $now)",
+      "INSERT INTO shifts (id, opened_by, opened_by_name, opened_at, opening_float, status, business_date) VALUES ('shift-1', 'owner-1', 'Owner', $now, 50000, 'open', '2025-10-05')",
+      "INSERT INTO orders (id, order_no, order_type, status, created_by, created_by_name, created_at, updated_at, business_date, bill_discount_type, bill_discount_value, service_charge_bps, delivery_charge, rounding_unit, revision, finalized_at) "
+          "VALUES ('order-1', 1, 'takeaway', 'finalized', 'owner-1', 'Owner', $now, $now, '2025-10-05', 'none', 0, 0, 0, 0, 2, $now)",
+      "INSERT INTO order_lines (id, order_id, item_id, item_name, unit_price, modifiers_json, modifiers_unit_total, quantity, line_discount_type, line_discount_value, tax_json, revision, sort_order, created_by, created_at, updated_at) "
+          "VALUES ('line-1', 'order-1', 'item-1', 'Coffee', 10000, '[]', 0, 2, 'none', 0, '{\"mode\":\"disabled\",\"rateBps\":0,\"components\":[]}', 1, 0, 'owner-1', $now, $now)",
+      "INSERT INTO bills (id, receipt_no, receipt_seq, order_id, operation_id, order_no, order_type, business_date, local_hour, created_at, staff_id, staff_name, shift_id, item_count, items_gross_entered, discount_entered_total, items_gross_ex, items_discount_ex, items_net_ex, charges_net_ex, tax_total, subtotal_before_rounding, rounding_adjustment, total, change_total, currency_code, time_zone, restaurant_json) "
+          "VALUES ('bill-1', 'OLD-000001', 1, 'order-1', 'finalize:op-1', 1, 'takeaway', '2025-10-05', 10, $now, 'owner-1', 'Owner', 'shift-1', 2, 20000, 0, 20000, 0, 20000, 0, 0, 20000, 0, 20000, 0, 'INR', 'Asia/Kolkata', '{\"name\":\"Old Café\",\"address\":\"Somewhere\",\"footer\":\"Thanks\"}')",
+      "INSERT INTO payments (id, bill_id, method, applied, tendered, change_given, shift_id, business_date, created_at, confirmed_by, confirmed_by_name) "
+          "VALUES ('pay-1', 'bill-1', 'cash', 20000, 20000, 0, 'shift-1', '2025-10-05', $now, 'owner-1', 'Owner')",
+      "INSERT INTO orders (id, order_no, order_type, status, created_by, created_by_name, created_at, updated_at, business_date, bill_discount_type, bill_discount_value, service_charge_bps, delivery_charge, rounding_unit, revision) "
+          "VALUES ('order-2', 2, 'takeaway', 'open', 'owner-1', 'Owner', $now, $now, '2025-10-05', 'none', 0, 0, 0, 0, 3)",
+      "INSERT INTO order_lines (id, order_id, item_id, item_name, unit_price, modifiers_json, modifiers_unit_total, quantity, line_discount_type, line_discount_value, tax_json, revision, sort_order, created_by, created_at, updated_at) "
+          "VALUES ('line-2', 'order-2', 'item-1', 'Coffee', 10000, '[]', 0, 1, 'none', 0, '{\"mode\":\"disabled\",\"rateBps\":0,\"components\":[]}', 1, 0, 'owner-1', $now, $now)",
+      "INSERT INTO kitchen_tickets (id, order_id, ticket_no, kind, status, operation_id, order_ref, created_by, created_by_name, created_at, updated_at) "
+          "VALUES ('kt-1', 'order-2', 1, 'order', 'preparing', 'kot:op-2', 'Takeaway #2', 'owner-1', 'Owner', $now, $now)",
+      "INSERT INTO kitchen_ticket_lines (id, ticket_id, order_line_id, order_line_revision, item_name, quantity_delta, unit_price) "
+          "VALUES ('ktl-1', 'kt-1', 'line-2', 1, 'Coffee', 1, 10000)",
+    ];
+    for (final s in statements) {
+      await old.customStatement(s);
+    }
+    await old.close();
+
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, AppDatabase.latestSchemaVersion);
+
+    // Historical financial values are untouched.
+    final bill = await db.select(db.bills).getSingle();
+    expect((bill.receiptNo, bill.total, bill.businessDate), ('OLD-000001', 20000, '2025-10-05'));
+    expect((await db.select(db.payments).getSingle()).applied, 20000);
+    // Existing tickets start at revision 1 and keep their status.
+    final ticket = await db.select(db.kitchenTickets).getSingle();
+    expect((ticket.status, ticket.revision), ('preparing', 1));
+    // Connected tables exist and are empty until the owner sets up devices.
+    expect(await db.select(db.hostIdentity).get(), isEmpty);
+    expect(await db.select(db.pairedDevices).get(), isEmpty);
+    expect(await db.select(db.hostEvents).get(), isEmpty);
+    expect(await db.select(db.commandReceipts).get(), isEmpty);
+
+    // Today's services work on the upgraded database and start the outbox at 1.
+    final ctx = ServiceContext(db: db, clock: FixedClock(DateTime.utc(2025, 10, 5, 6)));
+    const owner = Actor(staffId: 'owner-1', name: 'Owner', role: StaffRole.owner);
+    await OrderService(ctx).setTicketStatus(owner, 'kt-1', TicketStatus.ready);
+    final events = await db.select(db.hostEvents).get();
+    expect(events.single.sequence, 1);
+    expect(events.single.revision, 2);
+    expect((await db.select(db.kitchenTickets).getSingle()).revision, 2);
     await db.close();
   });
 }

@@ -18,12 +18,14 @@ abstract final class DemoLogins {
   static const ownerEmail = 'owner@demo.test';
   static const cashierEmail = 'cashier@demo.test';
   static const kitchenEmail = 'kitchen@demo.test';
+  static const waiterEmail = 'waiter@demo.test';
   static const password = 'demo1234';
 
   static String emailFor(StaffRole role) => switch (role) {
     StaffRole.owner => ownerEmail,
     StaffRole.cashier => cashierEmail,
     StaffRole.kitchen => kitchenEmail,
+    StaffRole.waiter => waiterEmail,
   };
 }
 
@@ -47,7 +49,11 @@ class DemoSeeder {
     );
     final owner = setup.owner;
     final auth = AuthService(ctx, hasher: hasher);
-    for (final (name, role) in [('Demo Cashier', StaffRole.cashier), ('Demo Kitchen', StaffRole.kitchen)]) {
+    for (final (name, role) in [
+      ('Demo Cashier', StaffRole.cashier),
+      ('Demo Kitchen', StaffRole.kitchen),
+      ('Demo Waiter', StaffRole.waiter),
+    ]) {
       await auth.createStaff(
         owner,
         name: name,

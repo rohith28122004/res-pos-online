@@ -7,7 +7,12 @@ import '../errors/app_exception.dart';
 enum StaffRole {
   owner,
   cashier,
-  kitchen;
+  kitchen,
+
+  /// Takes orders on a paired phone and sends them to the kitchen. Cannot take
+  /// payment, refund, give discounts without owner approval, manage staff or
+  /// see sales reports.
+  waiter;
 
   static StaffRole parse(String v) =>
       StaffRole.values.firstWhere((r) => r.name == v, orElse: () => throw ValidationException('Unknown role "$v"'));
@@ -16,6 +21,7 @@ enum StaffRole {
     StaffRole.owner => 'Owner',
     StaffRole.cashier => 'Cashier',
     StaffRole.kitchen => 'Kitchen',
+    StaffRole.waiter => 'Waiter',
   };
 }
 
@@ -40,6 +46,12 @@ enum Permission {
   restore,
   viewAudit,
   voidExpense,
+
+  /// Line or bill discounts within the cashier limit without approval.
+  discount,
+
+  /// Pair, rename and revoke waiter/kitchen devices; connect the cloud relay.
+  manageDevices,
 }
 
 const Map<StaffRole, Set<Permission>> rolePermissions = {
@@ -53,8 +65,10 @@ const Map<StaffRole, Set<Permission>> rolePermissions = {
     Permission.recordExpense,
     Permission.viewPrintQueue,
     Permission.kitchenTickets,
+    Permission.discount,
   },
   StaffRole.kitchen: {Permission.kitchenTickets},
+  StaffRole.waiter: {Permission.takeOrders},
 };
 
 /// The signed-in staff member performing an action.
@@ -102,6 +116,8 @@ class Actor {
     Permission.restore => 'restore backups',
     Permission.viewAudit => 'view the audit trail',
     Permission.voidExpense => 'void expenses',
+    Permission.discount => 'give discounts',
+    Permission.manageDevices => 'manage connected devices',
   };
 }
 

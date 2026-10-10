@@ -4,6 +4,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../core/security/permissions.dart';
 import '../../../core/service_context.dart';
+import '../../../core/sync/host_outbox.dart';
 
 class TableStatus {
   const TableStatus({required this.table, this.openOrderId, this.openOrderNo, this.openSince});
@@ -72,6 +73,7 @@ class TableService {
           .into(_db.diningTables)
           .insert(DiningTablesCompanion.insert(id: id, name: n, capacity: Value(capacity), sortOrder: Value(count)));
       await ctx.audit(actor, 'table.created', entityType: 'table', entityId: id, details: {'name': n});
+      await ctx.outbox.changed(Aggregate.tables, 'tables');
     });
     return id;
   }
@@ -94,6 +96,7 @@ class TableService {
         entityId: id,
         details: {'name': n, 'capacity': capacity},
       );
+      await ctx.outbox.changed(Aggregate.tables, 'tables');
     });
   }
 
@@ -108,6 +111,7 @@ class TableService {
         _db.diningTables,
       )..where((t) => t.id.equals(id))).write(DiningTablesCompanion(archived: Value(archived)));
       await ctx.audit(actor, archived ? 'table.archived' : 'table.restored', entityType: 'table', entityId: id);
+      await ctx.outbox.changed(Aggregate.tables, 'tables');
     });
   }
 }

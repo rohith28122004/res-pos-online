@@ -8662,6 +8662,18 @@ class $KitchenTicketsTable extends KitchenTickets with TableInfo<$KitchenTickets
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _revisionMeta = const VerificationMeta(
+    'revision',
+  );
+  @override
+  late final GeneratedColumn<int> revision = GeneratedColumn<int>(
+    'revision',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -8677,6 +8689,7 @@ class $KitchenTicketsTable extends KitchenTickets with TableInfo<$KitchenTickets
     createdByName,
     createdAt,
     updatedAt,
+    revision,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -8791,6 +8804,12 @@ class $KitchenTicketsTable extends KitchenTickets with TableInfo<$KitchenTickets
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('revision')) {
+      context.handle(
+        _revisionMeta,
+        revision.isAcceptableOrUnknown(data['revision']!, _revisionMeta),
+      );
+    }
     return context;
   }
 
@@ -8852,6 +8871,10 @@ class $KitchenTicketsTable extends KitchenTickets with TableInfo<$KitchenTickets
         DriftSqlType.int,
         data['${effectivePrefix}updated_at'],
       )!,
+      revision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}revision'],
+      )!,
     );
   }
 
@@ -8875,6 +8898,10 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
   final String createdByName;
   final int createdAt;
   final int updatedAt;
+
+  /// Added in schema v4: bumped on every status change, so a queued remote
+  /// status update with an older revision is refused instead of regressing.
+  final int revision;
   const KitchenTicketRow({
     required this.id,
     required this.orderId,
@@ -8889,6 +8916,7 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
     required this.createdByName,
     required this.createdAt,
     required this.updatedAt,
+    required this.revision,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -8912,6 +8940,7 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
     map['created_by_name'] = Variable<String>(createdByName);
     map['created_at'] = Variable<int>(createdAt);
     map['updated_at'] = Variable<int>(updatedAt);
+    map['revision'] = Variable<int>(revision);
     return map;
   }
 
@@ -8930,6 +8959,7 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
       createdByName: Value(createdByName),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      revision: Value(revision),
     );
   }
 
@@ -8952,6 +8982,7 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
       createdByName: serializer.fromJson<String>(json['createdByName']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
+      revision: serializer.fromJson<int>(json['revision']),
     );
   }
   @override
@@ -8971,6 +9002,7 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
       'createdByName': serializer.toJson<String>(createdByName),
       'createdAt': serializer.toJson<int>(createdAt),
       'updatedAt': serializer.toJson<int>(updatedAt),
+      'revision': serializer.toJson<int>(revision),
     };
   }
 
@@ -8988,6 +9020,7 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
     String? createdByName,
     int? createdAt,
     int? updatedAt,
+    int? revision,
   }) => KitchenTicketRow(
     id: id ?? this.id,
     orderId: orderId ?? this.orderId,
@@ -9002,6 +9035,7 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
     createdByName: createdByName ?? this.createdByName,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    revision: revision ?? this.revision,
   );
   KitchenTicketRow copyWithCompanion(KitchenTicketsCompanion data) {
     return KitchenTicketRow(
@@ -9018,6 +9052,7 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
       createdByName: data.createdByName.present ? data.createdByName.value : this.createdByName,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      revision: data.revision.present ? data.revision.value : this.revision,
     );
   }
 
@@ -9036,7 +9071,8 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
           ..write('createdBy: $createdBy, ')
           ..write('createdByName: $createdByName, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('revision: $revision')
           ..write(')'))
         .toString();
   }
@@ -9056,6 +9092,7 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
     createdByName,
     createdAt,
     updatedAt,
+    revision,
   );
   @override
   bool operator ==(Object other) =>
@@ -9073,7 +9110,8 @@ class KitchenTicketRow extends DataClass implements Insertable<KitchenTicketRow>
           other.createdBy == this.createdBy &&
           other.createdByName == this.createdByName &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.revision == this.revision);
 }
 
 class KitchenTicketsCompanion extends UpdateCompanion<KitchenTicketRow> {
@@ -9090,6 +9128,7 @@ class KitchenTicketsCompanion extends UpdateCompanion<KitchenTicketRow> {
   final Value<String> createdByName;
   final Value<int> createdAt;
   final Value<int> updatedAt;
+  final Value<int> revision;
   final Value<int> rowid;
   const KitchenTicketsCompanion({
     this.id = const Value.absent(),
@@ -9105,6 +9144,7 @@ class KitchenTicketsCompanion extends UpdateCompanion<KitchenTicketRow> {
     this.createdByName = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.revision = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   KitchenTicketsCompanion.insert({
@@ -9121,6 +9161,7 @@ class KitchenTicketsCompanion extends UpdateCompanion<KitchenTicketRow> {
     required String createdByName,
     required int createdAt,
     required int updatedAt,
+    this.revision = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        orderId = Value(orderId),
@@ -9146,6 +9187,7 @@ class KitchenTicketsCompanion extends UpdateCompanion<KitchenTicketRow> {
     Expression<String>? createdByName,
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
+    Expression<int>? revision,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -9162,6 +9204,7 @@ class KitchenTicketsCompanion extends UpdateCompanion<KitchenTicketRow> {
       if (createdByName != null) 'created_by_name': createdByName,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (revision != null) 'revision': revision,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -9180,6 +9223,7 @@ class KitchenTicketsCompanion extends UpdateCompanion<KitchenTicketRow> {
     Value<String>? createdByName,
     Value<int>? createdAt,
     Value<int>? updatedAt,
+    Value<int>? revision,
     Value<int>? rowid,
   }) {
     return KitchenTicketsCompanion(
@@ -9196,6 +9240,7 @@ class KitchenTicketsCompanion extends UpdateCompanion<KitchenTicketRow> {
       createdByName: createdByName ?? this.createdByName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      revision: revision ?? this.revision,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -9242,6 +9287,9 @@ class KitchenTicketsCompanion extends UpdateCompanion<KitchenTicketRow> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<int>(updatedAt.value);
     }
+    if (revision.present) {
+      map['revision'] = Variable<int>(revision.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -9264,6 +9312,7 @@ class KitchenTicketsCompanion extends UpdateCompanion<KitchenTicketRow> {
           ..write('createdByName: $createdByName, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('revision: $revision, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -23317,6 +23366,4570 @@ class CompletedOperationsCompanion extends UpdateCompanion<CompletedOperationRow
   }
 }
 
+class $HostIdentityTable extends HostIdentity with TableInfo<$HostIdentityTable, HostIdentityRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HostIdentityTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _singletonMeta = const VerificationMeta(
+    'singleton',
+  );
+  @override
+  late final GeneratedColumn<int> singleton = GeneratedColumn<int>(
+    'singleton',
+    aliasedName,
+    false,
+    check: () => singleton.equals(1),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _restaurantIdMeta = const VerificationMeta(
+    'restaurantId',
+  );
+  @override
+  late final GeneratedColumn<String> restaurantId = GeneratedColumn<String>(
+    'restaurant_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hostDeviceIdMeta = const VerificationMeta(
+    'hostDeviceId',
+  );
+  @override
+  late final GeneratedColumn<String> hostDeviceId = GeneratedColumn<String>(
+    'host_device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hostEpochMeta = const VerificationMeta(
+    'hostEpoch',
+  );
+  @override
+  late final GeneratedColumn<int> hostEpoch = GeneratedColumn<int>(
+    'host_epoch',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _epochStartSequenceMeta = const VerificationMeta('epochStartSequence');
+  @override
+  late final GeneratedColumn<int> epochStartSequence = GeneratedColumn<int>(
+    'epoch_start_sequence',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _epochStartedAtMeta = const VerificationMeta(
+    'epochStartedAt',
+  );
+  @override
+  late final GeneratedColumn<int> epochStartedAt = GeneratedColumn<int>(
+    'epoch_started_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tlsCertPemMeta = const VerificationMeta(
+    'tlsCertPem',
+  );
+  @override
+  late final GeneratedColumn<String> tlsCertPem = GeneratedColumn<String>(
+    'tls_cert_pem',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tlsCertSha256Meta = const VerificationMeta(
+    'tlsCertSha256',
+  );
+  @override
+  late final GeneratedColumn<String> tlsCertSha256 = GeneratedColumn<String>(
+    'tls_cert_sha256',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _signingPublicKeyMeta = const VerificationMeta(
+    'signingPublicKey',
+  );
+  @override
+  late final GeneratedColumn<String> signingPublicKey = GeneratedColumn<String>(
+    'signing_public_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sealPublicKeyMeta = const VerificationMeta(
+    'sealPublicKey',
+  );
+  @override
+  late final GeneratedColumn<String> sealPublicKey = GeneratedColumn<String>(
+    'seal_public_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lanPortMeta = const VerificationMeta(
+    'lanPort',
+  );
+  @override
+  late final GeneratedColumn<int> lanPort = GeneratedColumn<int>(
+    'lan_port',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(47821),
+  );
+  static const VerificationMeta _lanEnabledMeta = const VerificationMeta(
+    'lanEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> lanEnabled = GeneratedColumn<bool>(
+    'lan_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("lan_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _cloudUrlMeta = const VerificationMeta(
+    'cloudUrl',
+  );
+  @override
+  late final GeneratedColumn<String> cloudUrl = GeneratedColumn<String>(
+    'cloud_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cloudEnrolledAtMeta = const VerificationMeta(
+    'cloudEnrolledAt',
+  );
+  @override
+  late final GeneratedColumn<int> cloudEnrolledAt = GeneratedColumn<int>(
+    'cloud_enrolled_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reconcileRequiredMeta = const VerificationMeta(
+    'reconcileRequired',
+  );
+  @override
+  late final GeneratedColumn<bool> reconcileRequired = GeneratedColumn<bool>(
+    'reconcile_required',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("reconcile_required" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    singleton,
+    restaurantId,
+    hostDeviceId,
+    hostEpoch,
+    epochStartSequence,
+    epochStartedAt,
+    tlsCertPem,
+    tlsCertSha256,
+    signingPublicKey,
+    sealPublicKey,
+    lanPort,
+    lanEnabled,
+    cloudUrl,
+    cloudEnrolledAt,
+    reconcileRequired,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'host_identity';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<HostIdentityRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('singleton')) {
+      context.handle(
+        _singletonMeta,
+        singleton.isAcceptableOrUnknown(data['singleton']!, _singletonMeta),
+      );
+    }
+    if (data.containsKey('restaurant_id')) {
+      context.handle(
+        _restaurantIdMeta,
+        restaurantId.isAcceptableOrUnknown(
+          data['restaurant_id']!,
+          _restaurantIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_restaurantIdMeta);
+    }
+    if (data.containsKey('host_device_id')) {
+      context.handle(
+        _hostDeviceIdMeta,
+        hostDeviceId.isAcceptableOrUnknown(
+          data['host_device_id']!,
+          _hostDeviceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_hostDeviceIdMeta);
+    }
+    if (data.containsKey('host_epoch')) {
+      context.handle(
+        _hostEpochMeta,
+        hostEpoch.isAcceptableOrUnknown(data['host_epoch']!, _hostEpochMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hostEpochMeta);
+    }
+    if (data.containsKey('epoch_start_sequence')) {
+      context.handle(
+        _epochStartSequenceMeta,
+        epochStartSequence.isAcceptableOrUnknown(
+          data['epoch_start_sequence']!,
+          _epochStartSequenceMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_epochStartSequenceMeta);
+    }
+    if (data.containsKey('epoch_started_at')) {
+      context.handle(
+        _epochStartedAtMeta,
+        epochStartedAt.isAcceptableOrUnknown(
+          data['epoch_started_at']!,
+          _epochStartedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_epochStartedAtMeta);
+    }
+    if (data.containsKey('tls_cert_pem')) {
+      context.handle(
+        _tlsCertPemMeta,
+        tlsCertPem.isAcceptableOrUnknown(
+          data['tls_cert_pem']!,
+          _tlsCertPemMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_tlsCertPemMeta);
+    }
+    if (data.containsKey('tls_cert_sha256')) {
+      context.handle(
+        _tlsCertSha256Meta,
+        tlsCertSha256.isAcceptableOrUnknown(
+          data['tls_cert_sha256']!,
+          _tlsCertSha256Meta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_tlsCertSha256Meta);
+    }
+    if (data.containsKey('signing_public_key')) {
+      context.handle(
+        _signingPublicKeyMeta,
+        signingPublicKey.isAcceptableOrUnknown(
+          data['signing_public_key']!,
+          _signingPublicKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_signingPublicKeyMeta);
+    }
+    if (data.containsKey('seal_public_key')) {
+      context.handle(
+        _sealPublicKeyMeta,
+        sealPublicKey.isAcceptableOrUnknown(
+          data['seal_public_key']!,
+          _sealPublicKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sealPublicKeyMeta);
+    }
+    if (data.containsKey('lan_port')) {
+      context.handle(
+        _lanPortMeta,
+        lanPort.isAcceptableOrUnknown(data['lan_port']!, _lanPortMeta),
+      );
+    }
+    if (data.containsKey('lan_enabled')) {
+      context.handle(
+        _lanEnabledMeta,
+        lanEnabled.isAcceptableOrUnknown(data['lan_enabled']!, _lanEnabledMeta),
+      );
+    }
+    if (data.containsKey('cloud_url')) {
+      context.handle(
+        _cloudUrlMeta,
+        cloudUrl.isAcceptableOrUnknown(data['cloud_url']!, _cloudUrlMeta),
+      );
+    }
+    if (data.containsKey('cloud_enrolled_at')) {
+      context.handle(
+        _cloudEnrolledAtMeta,
+        cloudEnrolledAt.isAcceptableOrUnknown(
+          data['cloud_enrolled_at']!,
+          _cloudEnrolledAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reconcile_required')) {
+      context.handle(
+        _reconcileRequiredMeta,
+        reconcileRequired.isAcceptableOrUnknown(
+          data['reconcile_required']!,
+          _reconcileRequiredMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {singleton};
+  @override
+  HostIdentityRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return HostIdentityRow(
+      singleton: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}singleton'],
+      )!,
+      restaurantId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}restaurant_id'],
+      )!,
+      hostDeviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}host_device_id'],
+      )!,
+      hostEpoch: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}host_epoch'],
+      )!,
+      epochStartSequence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}epoch_start_sequence'],
+      )!,
+      epochStartedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}epoch_started_at'],
+      )!,
+      tlsCertPem: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tls_cert_pem'],
+      )!,
+      tlsCertSha256: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tls_cert_sha256'],
+      )!,
+      signingPublicKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}signing_public_key'],
+      )!,
+      sealPublicKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}seal_public_key'],
+      )!,
+      lanPort: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lan_port'],
+      )!,
+      lanEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}lan_enabled'],
+      )!,
+      cloudUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cloud_url'],
+      ),
+      cloudEnrolledAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cloud_enrolled_at'],
+      ),
+      reconcileRequired: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}reconcile_required'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $HostIdentityTable createAlias(String alias) {
+    return $HostIdentityTable(attachedDatabase, alias);
+  }
+}
+
+class HostIdentityRow extends DataClass implements Insertable<HostIdentityRow> {
+  final int singleton;
+  final String restaurantId;
+  final String hostDeviceId;
+
+  /// Starts at 1; +1 after every restore so stale commands and duplicate
+  /// uploads from before the restore can never be applied.
+  final int hostEpoch;
+
+  /// First event sequence of the current epoch.
+  final int epochStartSequence;
+  final int epochStartedAt;
+
+  /// Self-signed TLS certificate (PEM) and the SHA-256 of its DER, which
+  /// devices pin at pairing.
+  final String tlsCertPem;
+  final String tlsCertSha256;
+
+  /// Public halves of the host keys (b64url). Private halves: secure storage.
+  final String signingPublicKey;
+  final String sealPublicKey;
+  final int lanPort;
+  final bool lanEnabled;
+
+  /// Cloud relay URL once enrolled; null = not enrolled.
+  final String? cloudUrl;
+  final int? cloudEnrolledAt;
+
+  /// Set after a restore: devices and the cloud stay disconnected until the
+  /// owner reconnects (new epoch registered, old queued work quarantined).
+  final bool reconcileRequired;
+  final int createdAt;
+  final int updatedAt;
+  const HostIdentityRow({
+    required this.singleton,
+    required this.restaurantId,
+    required this.hostDeviceId,
+    required this.hostEpoch,
+    required this.epochStartSequence,
+    required this.epochStartedAt,
+    required this.tlsCertPem,
+    required this.tlsCertSha256,
+    required this.signingPublicKey,
+    required this.sealPublicKey,
+    required this.lanPort,
+    required this.lanEnabled,
+    this.cloudUrl,
+    this.cloudEnrolledAt,
+    required this.reconcileRequired,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['singleton'] = Variable<int>(singleton);
+    map['restaurant_id'] = Variable<String>(restaurantId);
+    map['host_device_id'] = Variable<String>(hostDeviceId);
+    map['host_epoch'] = Variable<int>(hostEpoch);
+    map['epoch_start_sequence'] = Variable<int>(epochStartSequence);
+    map['epoch_started_at'] = Variable<int>(epochStartedAt);
+    map['tls_cert_pem'] = Variable<String>(tlsCertPem);
+    map['tls_cert_sha256'] = Variable<String>(tlsCertSha256);
+    map['signing_public_key'] = Variable<String>(signingPublicKey);
+    map['seal_public_key'] = Variable<String>(sealPublicKey);
+    map['lan_port'] = Variable<int>(lanPort);
+    map['lan_enabled'] = Variable<bool>(lanEnabled);
+    if (!nullToAbsent || cloudUrl != null) {
+      map['cloud_url'] = Variable<String>(cloudUrl);
+    }
+    if (!nullToAbsent || cloudEnrolledAt != null) {
+      map['cloud_enrolled_at'] = Variable<int>(cloudEnrolledAt);
+    }
+    map['reconcile_required'] = Variable<bool>(reconcileRequired);
+    map['created_at'] = Variable<int>(createdAt);
+    map['updated_at'] = Variable<int>(updatedAt);
+    return map;
+  }
+
+  HostIdentityCompanion toCompanion(bool nullToAbsent) {
+    return HostIdentityCompanion(
+      singleton: Value(singleton),
+      restaurantId: Value(restaurantId),
+      hostDeviceId: Value(hostDeviceId),
+      hostEpoch: Value(hostEpoch),
+      epochStartSequence: Value(epochStartSequence),
+      epochStartedAt: Value(epochStartedAt),
+      tlsCertPem: Value(tlsCertPem),
+      tlsCertSha256: Value(tlsCertSha256),
+      signingPublicKey: Value(signingPublicKey),
+      sealPublicKey: Value(sealPublicKey),
+      lanPort: Value(lanPort),
+      lanEnabled: Value(lanEnabled),
+      cloudUrl: cloudUrl == null && nullToAbsent ? const Value.absent() : Value(cloudUrl),
+      cloudEnrolledAt: cloudEnrolledAt == null && nullToAbsent ? const Value.absent() : Value(cloudEnrolledAt),
+      reconcileRequired: Value(reconcileRequired),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory HostIdentityRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return HostIdentityRow(
+      singleton: serializer.fromJson<int>(json['singleton']),
+      restaurantId: serializer.fromJson<String>(json['restaurantId']),
+      hostDeviceId: serializer.fromJson<String>(json['hostDeviceId']),
+      hostEpoch: serializer.fromJson<int>(json['hostEpoch']),
+      epochStartSequence: serializer.fromJson<int>(json['epochStartSequence']),
+      epochStartedAt: serializer.fromJson<int>(json['epochStartedAt']),
+      tlsCertPem: serializer.fromJson<String>(json['tlsCertPem']),
+      tlsCertSha256: serializer.fromJson<String>(json['tlsCertSha256']),
+      signingPublicKey: serializer.fromJson<String>(json['signingPublicKey']),
+      sealPublicKey: serializer.fromJson<String>(json['sealPublicKey']),
+      lanPort: serializer.fromJson<int>(json['lanPort']),
+      lanEnabled: serializer.fromJson<bool>(json['lanEnabled']),
+      cloudUrl: serializer.fromJson<String?>(json['cloudUrl']),
+      cloudEnrolledAt: serializer.fromJson<int?>(json['cloudEnrolledAt']),
+      reconcileRequired: serializer.fromJson<bool>(json['reconcileRequired']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'singleton': serializer.toJson<int>(singleton),
+      'restaurantId': serializer.toJson<String>(restaurantId),
+      'hostDeviceId': serializer.toJson<String>(hostDeviceId),
+      'hostEpoch': serializer.toJson<int>(hostEpoch),
+      'epochStartSequence': serializer.toJson<int>(epochStartSequence),
+      'epochStartedAt': serializer.toJson<int>(epochStartedAt),
+      'tlsCertPem': serializer.toJson<String>(tlsCertPem),
+      'tlsCertSha256': serializer.toJson<String>(tlsCertSha256),
+      'signingPublicKey': serializer.toJson<String>(signingPublicKey),
+      'sealPublicKey': serializer.toJson<String>(sealPublicKey),
+      'lanPort': serializer.toJson<int>(lanPort),
+      'lanEnabled': serializer.toJson<bool>(lanEnabled),
+      'cloudUrl': serializer.toJson<String?>(cloudUrl),
+      'cloudEnrolledAt': serializer.toJson<int?>(cloudEnrolledAt),
+      'reconcileRequired': serializer.toJson<bool>(reconcileRequired),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+    };
+  }
+
+  HostIdentityRow copyWith({
+    int? singleton,
+    String? restaurantId,
+    String? hostDeviceId,
+    int? hostEpoch,
+    int? epochStartSequence,
+    int? epochStartedAt,
+    String? tlsCertPem,
+    String? tlsCertSha256,
+    String? signingPublicKey,
+    String? sealPublicKey,
+    int? lanPort,
+    bool? lanEnabled,
+    Value<String?> cloudUrl = const Value.absent(),
+    Value<int?> cloudEnrolledAt = const Value.absent(),
+    bool? reconcileRequired,
+    int? createdAt,
+    int? updatedAt,
+  }) => HostIdentityRow(
+    singleton: singleton ?? this.singleton,
+    restaurantId: restaurantId ?? this.restaurantId,
+    hostDeviceId: hostDeviceId ?? this.hostDeviceId,
+    hostEpoch: hostEpoch ?? this.hostEpoch,
+    epochStartSequence: epochStartSequence ?? this.epochStartSequence,
+    epochStartedAt: epochStartedAt ?? this.epochStartedAt,
+    tlsCertPem: tlsCertPem ?? this.tlsCertPem,
+    tlsCertSha256: tlsCertSha256 ?? this.tlsCertSha256,
+    signingPublicKey: signingPublicKey ?? this.signingPublicKey,
+    sealPublicKey: sealPublicKey ?? this.sealPublicKey,
+    lanPort: lanPort ?? this.lanPort,
+    lanEnabled: lanEnabled ?? this.lanEnabled,
+    cloudUrl: cloudUrl.present ? cloudUrl.value : this.cloudUrl,
+    cloudEnrolledAt: cloudEnrolledAt.present ? cloudEnrolledAt.value : this.cloudEnrolledAt,
+    reconcileRequired: reconcileRequired ?? this.reconcileRequired,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  HostIdentityRow copyWithCompanion(HostIdentityCompanion data) {
+    return HostIdentityRow(
+      singleton: data.singleton.present ? data.singleton.value : this.singleton,
+      restaurantId: data.restaurantId.present ? data.restaurantId.value : this.restaurantId,
+      hostDeviceId: data.hostDeviceId.present ? data.hostDeviceId.value : this.hostDeviceId,
+      hostEpoch: data.hostEpoch.present ? data.hostEpoch.value : this.hostEpoch,
+      epochStartSequence: data.epochStartSequence.present ? data.epochStartSequence.value : this.epochStartSequence,
+      epochStartedAt: data.epochStartedAt.present ? data.epochStartedAt.value : this.epochStartedAt,
+      tlsCertPem: data.tlsCertPem.present ? data.tlsCertPem.value : this.tlsCertPem,
+      tlsCertSha256: data.tlsCertSha256.present ? data.tlsCertSha256.value : this.tlsCertSha256,
+      signingPublicKey: data.signingPublicKey.present ? data.signingPublicKey.value : this.signingPublicKey,
+      sealPublicKey: data.sealPublicKey.present ? data.sealPublicKey.value : this.sealPublicKey,
+      lanPort: data.lanPort.present ? data.lanPort.value : this.lanPort,
+      lanEnabled: data.lanEnabled.present ? data.lanEnabled.value : this.lanEnabled,
+      cloudUrl: data.cloudUrl.present ? data.cloudUrl.value : this.cloudUrl,
+      cloudEnrolledAt: data.cloudEnrolledAt.present ? data.cloudEnrolledAt.value : this.cloudEnrolledAt,
+      reconcileRequired: data.reconcileRequired.present ? data.reconcileRequired.value : this.reconcileRequired,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HostIdentityRow(')
+          ..write('singleton: $singleton, ')
+          ..write('restaurantId: $restaurantId, ')
+          ..write('hostDeviceId: $hostDeviceId, ')
+          ..write('hostEpoch: $hostEpoch, ')
+          ..write('epochStartSequence: $epochStartSequence, ')
+          ..write('epochStartedAt: $epochStartedAt, ')
+          ..write('tlsCertPem: $tlsCertPem, ')
+          ..write('tlsCertSha256: $tlsCertSha256, ')
+          ..write('signingPublicKey: $signingPublicKey, ')
+          ..write('sealPublicKey: $sealPublicKey, ')
+          ..write('lanPort: $lanPort, ')
+          ..write('lanEnabled: $lanEnabled, ')
+          ..write('cloudUrl: $cloudUrl, ')
+          ..write('cloudEnrolledAt: $cloudEnrolledAt, ')
+          ..write('reconcileRequired: $reconcileRequired, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    singleton,
+    restaurantId,
+    hostDeviceId,
+    hostEpoch,
+    epochStartSequence,
+    epochStartedAt,
+    tlsCertPem,
+    tlsCertSha256,
+    signingPublicKey,
+    sealPublicKey,
+    lanPort,
+    lanEnabled,
+    cloudUrl,
+    cloudEnrolledAt,
+    reconcileRequired,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is HostIdentityRow &&
+          other.singleton == this.singleton &&
+          other.restaurantId == this.restaurantId &&
+          other.hostDeviceId == this.hostDeviceId &&
+          other.hostEpoch == this.hostEpoch &&
+          other.epochStartSequence == this.epochStartSequence &&
+          other.epochStartedAt == this.epochStartedAt &&
+          other.tlsCertPem == this.tlsCertPem &&
+          other.tlsCertSha256 == this.tlsCertSha256 &&
+          other.signingPublicKey == this.signingPublicKey &&
+          other.sealPublicKey == this.sealPublicKey &&
+          other.lanPort == this.lanPort &&
+          other.lanEnabled == this.lanEnabled &&
+          other.cloudUrl == this.cloudUrl &&
+          other.cloudEnrolledAt == this.cloudEnrolledAt &&
+          other.reconcileRequired == this.reconcileRequired &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class HostIdentityCompanion extends UpdateCompanion<HostIdentityRow> {
+  final Value<int> singleton;
+  final Value<String> restaurantId;
+  final Value<String> hostDeviceId;
+  final Value<int> hostEpoch;
+  final Value<int> epochStartSequence;
+  final Value<int> epochStartedAt;
+  final Value<String> tlsCertPem;
+  final Value<String> tlsCertSha256;
+  final Value<String> signingPublicKey;
+  final Value<String> sealPublicKey;
+  final Value<int> lanPort;
+  final Value<bool> lanEnabled;
+  final Value<String?> cloudUrl;
+  final Value<int?> cloudEnrolledAt;
+  final Value<bool> reconcileRequired;
+  final Value<int> createdAt;
+  final Value<int> updatedAt;
+  const HostIdentityCompanion({
+    this.singleton = const Value.absent(),
+    this.restaurantId = const Value.absent(),
+    this.hostDeviceId = const Value.absent(),
+    this.hostEpoch = const Value.absent(),
+    this.epochStartSequence = const Value.absent(),
+    this.epochStartedAt = const Value.absent(),
+    this.tlsCertPem = const Value.absent(),
+    this.tlsCertSha256 = const Value.absent(),
+    this.signingPublicKey = const Value.absent(),
+    this.sealPublicKey = const Value.absent(),
+    this.lanPort = const Value.absent(),
+    this.lanEnabled = const Value.absent(),
+    this.cloudUrl = const Value.absent(),
+    this.cloudEnrolledAt = const Value.absent(),
+    this.reconcileRequired = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  HostIdentityCompanion.insert({
+    this.singleton = const Value.absent(),
+    required String restaurantId,
+    required String hostDeviceId,
+    required int hostEpoch,
+    required int epochStartSequence,
+    required int epochStartedAt,
+    required String tlsCertPem,
+    required String tlsCertSha256,
+    required String signingPublicKey,
+    required String sealPublicKey,
+    this.lanPort = const Value.absent(),
+    this.lanEnabled = const Value.absent(),
+    this.cloudUrl = const Value.absent(),
+    this.cloudEnrolledAt = const Value.absent(),
+    this.reconcileRequired = const Value.absent(),
+    required int createdAt,
+    required int updatedAt,
+  }) : restaurantId = Value(restaurantId),
+       hostDeviceId = Value(hostDeviceId),
+       hostEpoch = Value(hostEpoch),
+       epochStartSequence = Value(epochStartSequence),
+       epochStartedAt = Value(epochStartedAt),
+       tlsCertPem = Value(tlsCertPem),
+       tlsCertSha256 = Value(tlsCertSha256),
+       signingPublicKey = Value(signingPublicKey),
+       sealPublicKey = Value(sealPublicKey),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<HostIdentityRow> custom({
+    Expression<int>? singleton,
+    Expression<String>? restaurantId,
+    Expression<String>? hostDeviceId,
+    Expression<int>? hostEpoch,
+    Expression<int>? epochStartSequence,
+    Expression<int>? epochStartedAt,
+    Expression<String>? tlsCertPem,
+    Expression<String>? tlsCertSha256,
+    Expression<String>? signingPublicKey,
+    Expression<String>? sealPublicKey,
+    Expression<int>? lanPort,
+    Expression<bool>? lanEnabled,
+    Expression<String>? cloudUrl,
+    Expression<int>? cloudEnrolledAt,
+    Expression<bool>? reconcileRequired,
+    Expression<int>? createdAt,
+    Expression<int>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (singleton != null) 'singleton': singleton,
+      if (restaurantId != null) 'restaurant_id': restaurantId,
+      if (hostDeviceId != null) 'host_device_id': hostDeviceId,
+      if (hostEpoch != null) 'host_epoch': hostEpoch,
+      if (epochStartSequence != null) 'epoch_start_sequence': epochStartSequence,
+      if (epochStartedAt != null) 'epoch_started_at': epochStartedAt,
+      if (tlsCertPem != null) 'tls_cert_pem': tlsCertPem,
+      if (tlsCertSha256 != null) 'tls_cert_sha256': tlsCertSha256,
+      if (signingPublicKey != null) 'signing_public_key': signingPublicKey,
+      if (sealPublicKey != null) 'seal_public_key': sealPublicKey,
+      if (lanPort != null) 'lan_port': lanPort,
+      if (lanEnabled != null) 'lan_enabled': lanEnabled,
+      if (cloudUrl != null) 'cloud_url': cloudUrl,
+      if (cloudEnrolledAt != null) 'cloud_enrolled_at': cloudEnrolledAt,
+      if (reconcileRequired != null) 'reconcile_required': reconcileRequired,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  HostIdentityCompanion copyWith({
+    Value<int>? singleton,
+    Value<String>? restaurantId,
+    Value<String>? hostDeviceId,
+    Value<int>? hostEpoch,
+    Value<int>? epochStartSequence,
+    Value<int>? epochStartedAt,
+    Value<String>? tlsCertPem,
+    Value<String>? tlsCertSha256,
+    Value<String>? signingPublicKey,
+    Value<String>? sealPublicKey,
+    Value<int>? lanPort,
+    Value<bool>? lanEnabled,
+    Value<String?>? cloudUrl,
+    Value<int?>? cloudEnrolledAt,
+    Value<bool>? reconcileRequired,
+    Value<int>? createdAt,
+    Value<int>? updatedAt,
+  }) {
+    return HostIdentityCompanion(
+      singleton: singleton ?? this.singleton,
+      restaurantId: restaurantId ?? this.restaurantId,
+      hostDeviceId: hostDeviceId ?? this.hostDeviceId,
+      hostEpoch: hostEpoch ?? this.hostEpoch,
+      epochStartSequence: epochStartSequence ?? this.epochStartSequence,
+      epochStartedAt: epochStartedAt ?? this.epochStartedAt,
+      tlsCertPem: tlsCertPem ?? this.tlsCertPem,
+      tlsCertSha256: tlsCertSha256 ?? this.tlsCertSha256,
+      signingPublicKey: signingPublicKey ?? this.signingPublicKey,
+      sealPublicKey: sealPublicKey ?? this.sealPublicKey,
+      lanPort: lanPort ?? this.lanPort,
+      lanEnabled: lanEnabled ?? this.lanEnabled,
+      cloudUrl: cloudUrl ?? this.cloudUrl,
+      cloudEnrolledAt: cloudEnrolledAt ?? this.cloudEnrolledAt,
+      reconcileRequired: reconcileRequired ?? this.reconcileRequired,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (singleton.present) {
+      map['singleton'] = Variable<int>(singleton.value);
+    }
+    if (restaurantId.present) {
+      map['restaurant_id'] = Variable<String>(restaurantId.value);
+    }
+    if (hostDeviceId.present) {
+      map['host_device_id'] = Variable<String>(hostDeviceId.value);
+    }
+    if (hostEpoch.present) {
+      map['host_epoch'] = Variable<int>(hostEpoch.value);
+    }
+    if (epochStartSequence.present) {
+      map['epoch_start_sequence'] = Variable<int>(epochStartSequence.value);
+    }
+    if (epochStartedAt.present) {
+      map['epoch_started_at'] = Variable<int>(epochStartedAt.value);
+    }
+    if (tlsCertPem.present) {
+      map['tls_cert_pem'] = Variable<String>(tlsCertPem.value);
+    }
+    if (tlsCertSha256.present) {
+      map['tls_cert_sha256'] = Variable<String>(tlsCertSha256.value);
+    }
+    if (signingPublicKey.present) {
+      map['signing_public_key'] = Variable<String>(signingPublicKey.value);
+    }
+    if (sealPublicKey.present) {
+      map['seal_public_key'] = Variable<String>(sealPublicKey.value);
+    }
+    if (lanPort.present) {
+      map['lan_port'] = Variable<int>(lanPort.value);
+    }
+    if (lanEnabled.present) {
+      map['lan_enabled'] = Variable<bool>(lanEnabled.value);
+    }
+    if (cloudUrl.present) {
+      map['cloud_url'] = Variable<String>(cloudUrl.value);
+    }
+    if (cloudEnrolledAt.present) {
+      map['cloud_enrolled_at'] = Variable<int>(cloudEnrolledAt.value);
+    }
+    if (reconcileRequired.present) {
+      map['reconcile_required'] = Variable<bool>(reconcileRequired.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HostIdentityCompanion(')
+          ..write('singleton: $singleton, ')
+          ..write('restaurantId: $restaurantId, ')
+          ..write('hostDeviceId: $hostDeviceId, ')
+          ..write('hostEpoch: $hostEpoch, ')
+          ..write('epochStartSequence: $epochStartSequence, ')
+          ..write('epochStartedAt: $epochStartedAt, ')
+          ..write('tlsCertPem: $tlsCertPem, ')
+          ..write('tlsCertSha256: $tlsCertSha256, ')
+          ..write('signingPublicKey: $signingPublicKey, ')
+          ..write('sealPublicKey: $sealPublicKey, ')
+          ..write('lanPort: $lanPort, ')
+          ..write('lanEnabled: $lanEnabled, ')
+          ..write('cloudUrl: $cloudUrl, ')
+          ..write('cloudEnrolledAt: $cloudEnrolledAt, ')
+          ..write('reconcileRequired: $reconcileRequired, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PairedDevicesTable extends PairedDevices with TableInfo<$PairedDevicesTable, PairedDeviceRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PairedDevicesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _platformMeta = const VerificationMeta(
+    'platform',
+  );
+  @override
+  late final GeneratedColumn<String> platform = GeneratedColumn<String>(
+    'platform',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _appVersionMeta = const VerificationMeta(
+    'appVersion',
+  );
+  @override
+  late final GeneratedColumn<String> appVersion = GeneratedColumn<String>(
+    'app_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _credentialHashMeta = const VerificationMeta(
+    'credentialHash',
+  );
+  @override
+  late final GeneratedColumn<String> credentialHash = GeneratedColumn<String>(
+    'credential_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pairedByMeta = const VerificationMeta(
+    'pairedBy',
+  );
+  @override
+  late final GeneratedColumn<String> pairedBy = GeneratedColumn<String>(
+    'paired_by',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pairedByNameMeta = const VerificationMeta(
+    'pairedByName',
+  );
+  @override
+  late final GeneratedColumn<String> pairedByName = GeneratedColumn<String>(
+    'paired_by_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastSeenAtMeta = const VerificationMeta(
+    'lastSeenAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastSeenAt = GeneratedColumn<int>(
+    'last_seen_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _revokedAtMeta = const VerificationMeta(
+    'revokedAt',
+  );
+  @override
+  late final GeneratedColumn<int> revokedAt = GeneratedColumn<int>(
+    'revoked_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _revokedByMeta = const VerificationMeta(
+    'revokedBy',
+  );
+  @override
+  late final GeneratedColumn<String> revokedBy = GeneratedColumn<String>(
+    'revoked_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    role,
+    name,
+    platform,
+    appVersion,
+    credentialHash,
+    createdAt,
+    pairedBy,
+    pairedByName,
+    lastSeenAt,
+    revokedAt,
+    revokedBy,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'paired_devices';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PairedDeviceRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('platform')) {
+      context.handle(
+        _platformMeta,
+        platform.isAcceptableOrUnknown(data['platform']!, _platformMeta),
+      );
+    }
+    if (data.containsKey('app_version')) {
+      context.handle(
+        _appVersionMeta,
+        appVersion.isAcceptableOrUnknown(data['app_version']!, _appVersionMeta),
+      );
+    }
+    if (data.containsKey('credential_hash')) {
+      context.handle(
+        _credentialHashMeta,
+        credentialHash.isAcceptableOrUnknown(
+          data['credential_hash']!,
+          _credentialHashMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_credentialHashMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('paired_by')) {
+      context.handle(
+        _pairedByMeta,
+        pairedBy.isAcceptableOrUnknown(data['paired_by']!, _pairedByMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pairedByMeta);
+    }
+    if (data.containsKey('paired_by_name')) {
+      context.handle(
+        _pairedByNameMeta,
+        pairedByName.isAcceptableOrUnknown(
+          data['paired_by_name']!,
+          _pairedByNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_pairedByNameMeta);
+    }
+    if (data.containsKey('last_seen_at')) {
+      context.handle(
+        _lastSeenAtMeta,
+        lastSeenAt.isAcceptableOrUnknown(
+          data['last_seen_at']!,
+          _lastSeenAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('revoked_at')) {
+      context.handle(
+        _revokedAtMeta,
+        revokedAt.isAcceptableOrUnknown(data['revoked_at']!, _revokedAtMeta),
+      );
+    }
+    if (data.containsKey('revoked_by')) {
+      context.handle(
+        _revokedByMeta,
+        revokedBy.isAcceptableOrUnknown(data['revoked_by']!, _revokedByMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PairedDeviceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PairedDeviceRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      platform: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}platform'],
+      ),
+      appVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}app_version'],
+      ),
+      credentialHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}credential_hash'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      pairedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}paired_by'],
+      )!,
+      pairedByName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}paired_by_name'],
+      )!,
+      lastSeenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_seen_at'],
+      ),
+      revokedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}revoked_at'],
+      ),
+      revokedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}revoked_by'],
+      ),
+    );
+  }
+
+  @override
+  $PairedDevicesTable createAlias(String alias) {
+    return $PairedDevicesTable(attachedDatabase, alias);
+  }
+}
+
+class PairedDeviceRow extends DataClass implements Insertable<PairedDeviceRow> {
+  final String id;
+  final String role;
+  final String name;
+  final String? platform;
+  final String? appVersion;
+
+  /// sha256hex of the device credential; the credential itself is only on the
+  /// device.
+  final String credentialHash;
+  final int createdAt;
+  final String pairedBy;
+  final String pairedByName;
+  final int? lastSeenAt;
+  final int? revokedAt;
+  final String? revokedBy;
+  const PairedDeviceRow({
+    required this.id,
+    required this.role,
+    required this.name,
+    this.platform,
+    this.appVersion,
+    required this.credentialHash,
+    required this.createdAt,
+    required this.pairedBy,
+    required this.pairedByName,
+    this.lastSeenAt,
+    this.revokedAt,
+    this.revokedBy,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['role'] = Variable<String>(role);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || platform != null) {
+      map['platform'] = Variable<String>(platform);
+    }
+    if (!nullToAbsent || appVersion != null) {
+      map['app_version'] = Variable<String>(appVersion);
+    }
+    map['credential_hash'] = Variable<String>(credentialHash);
+    map['created_at'] = Variable<int>(createdAt);
+    map['paired_by'] = Variable<String>(pairedBy);
+    map['paired_by_name'] = Variable<String>(pairedByName);
+    if (!nullToAbsent || lastSeenAt != null) {
+      map['last_seen_at'] = Variable<int>(lastSeenAt);
+    }
+    if (!nullToAbsent || revokedAt != null) {
+      map['revoked_at'] = Variable<int>(revokedAt);
+    }
+    if (!nullToAbsent || revokedBy != null) {
+      map['revoked_by'] = Variable<String>(revokedBy);
+    }
+    return map;
+  }
+
+  PairedDevicesCompanion toCompanion(bool nullToAbsent) {
+    return PairedDevicesCompanion(
+      id: Value(id),
+      role: Value(role),
+      name: Value(name),
+      platform: platform == null && nullToAbsent ? const Value.absent() : Value(platform),
+      appVersion: appVersion == null && nullToAbsent ? const Value.absent() : Value(appVersion),
+      credentialHash: Value(credentialHash),
+      createdAt: Value(createdAt),
+      pairedBy: Value(pairedBy),
+      pairedByName: Value(pairedByName),
+      lastSeenAt: lastSeenAt == null && nullToAbsent ? const Value.absent() : Value(lastSeenAt),
+      revokedAt: revokedAt == null && nullToAbsent ? const Value.absent() : Value(revokedAt),
+      revokedBy: revokedBy == null && nullToAbsent ? const Value.absent() : Value(revokedBy),
+    );
+  }
+
+  factory PairedDeviceRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PairedDeviceRow(
+      id: serializer.fromJson<String>(json['id']),
+      role: serializer.fromJson<String>(json['role']),
+      name: serializer.fromJson<String>(json['name']),
+      platform: serializer.fromJson<String?>(json['platform']),
+      appVersion: serializer.fromJson<String?>(json['appVersion']),
+      credentialHash: serializer.fromJson<String>(json['credentialHash']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      pairedBy: serializer.fromJson<String>(json['pairedBy']),
+      pairedByName: serializer.fromJson<String>(json['pairedByName']),
+      lastSeenAt: serializer.fromJson<int?>(json['lastSeenAt']),
+      revokedAt: serializer.fromJson<int?>(json['revokedAt']),
+      revokedBy: serializer.fromJson<String?>(json['revokedBy']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'role': serializer.toJson<String>(role),
+      'name': serializer.toJson<String>(name),
+      'platform': serializer.toJson<String?>(platform),
+      'appVersion': serializer.toJson<String?>(appVersion),
+      'credentialHash': serializer.toJson<String>(credentialHash),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'pairedBy': serializer.toJson<String>(pairedBy),
+      'pairedByName': serializer.toJson<String>(pairedByName),
+      'lastSeenAt': serializer.toJson<int?>(lastSeenAt),
+      'revokedAt': serializer.toJson<int?>(revokedAt),
+      'revokedBy': serializer.toJson<String?>(revokedBy),
+    };
+  }
+
+  PairedDeviceRow copyWith({
+    String? id,
+    String? role,
+    String? name,
+    Value<String?> platform = const Value.absent(),
+    Value<String?> appVersion = const Value.absent(),
+    String? credentialHash,
+    int? createdAt,
+    String? pairedBy,
+    String? pairedByName,
+    Value<int?> lastSeenAt = const Value.absent(),
+    Value<int?> revokedAt = const Value.absent(),
+    Value<String?> revokedBy = const Value.absent(),
+  }) => PairedDeviceRow(
+    id: id ?? this.id,
+    role: role ?? this.role,
+    name: name ?? this.name,
+    platform: platform.present ? platform.value : this.platform,
+    appVersion: appVersion.present ? appVersion.value : this.appVersion,
+    credentialHash: credentialHash ?? this.credentialHash,
+    createdAt: createdAt ?? this.createdAt,
+    pairedBy: pairedBy ?? this.pairedBy,
+    pairedByName: pairedByName ?? this.pairedByName,
+    lastSeenAt: lastSeenAt.present ? lastSeenAt.value : this.lastSeenAt,
+    revokedAt: revokedAt.present ? revokedAt.value : this.revokedAt,
+    revokedBy: revokedBy.present ? revokedBy.value : this.revokedBy,
+  );
+  PairedDeviceRow copyWithCompanion(PairedDevicesCompanion data) {
+    return PairedDeviceRow(
+      id: data.id.present ? data.id.value : this.id,
+      role: data.role.present ? data.role.value : this.role,
+      name: data.name.present ? data.name.value : this.name,
+      platform: data.platform.present ? data.platform.value : this.platform,
+      appVersion: data.appVersion.present ? data.appVersion.value : this.appVersion,
+      credentialHash: data.credentialHash.present ? data.credentialHash.value : this.credentialHash,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      pairedBy: data.pairedBy.present ? data.pairedBy.value : this.pairedBy,
+      pairedByName: data.pairedByName.present ? data.pairedByName.value : this.pairedByName,
+      lastSeenAt: data.lastSeenAt.present ? data.lastSeenAt.value : this.lastSeenAt,
+      revokedAt: data.revokedAt.present ? data.revokedAt.value : this.revokedAt,
+      revokedBy: data.revokedBy.present ? data.revokedBy.value : this.revokedBy,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PairedDeviceRow(')
+          ..write('id: $id, ')
+          ..write('role: $role, ')
+          ..write('name: $name, ')
+          ..write('platform: $platform, ')
+          ..write('appVersion: $appVersion, ')
+          ..write('credentialHash: $credentialHash, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('pairedBy: $pairedBy, ')
+          ..write('pairedByName: $pairedByName, ')
+          ..write('lastSeenAt: $lastSeenAt, ')
+          ..write('revokedAt: $revokedAt, ')
+          ..write('revokedBy: $revokedBy')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    role,
+    name,
+    platform,
+    appVersion,
+    credentialHash,
+    createdAt,
+    pairedBy,
+    pairedByName,
+    lastSeenAt,
+    revokedAt,
+    revokedBy,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PairedDeviceRow &&
+          other.id == this.id &&
+          other.role == this.role &&
+          other.name == this.name &&
+          other.platform == this.platform &&
+          other.appVersion == this.appVersion &&
+          other.credentialHash == this.credentialHash &&
+          other.createdAt == this.createdAt &&
+          other.pairedBy == this.pairedBy &&
+          other.pairedByName == this.pairedByName &&
+          other.lastSeenAt == this.lastSeenAt &&
+          other.revokedAt == this.revokedAt &&
+          other.revokedBy == this.revokedBy);
+}
+
+class PairedDevicesCompanion extends UpdateCompanion<PairedDeviceRow> {
+  final Value<String> id;
+  final Value<String> role;
+  final Value<String> name;
+  final Value<String?> platform;
+  final Value<String?> appVersion;
+  final Value<String> credentialHash;
+  final Value<int> createdAt;
+  final Value<String> pairedBy;
+  final Value<String> pairedByName;
+  final Value<int?> lastSeenAt;
+  final Value<int?> revokedAt;
+  final Value<String?> revokedBy;
+  final Value<int> rowid;
+  const PairedDevicesCompanion({
+    this.id = const Value.absent(),
+    this.role = const Value.absent(),
+    this.name = const Value.absent(),
+    this.platform = const Value.absent(),
+    this.appVersion = const Value.absent(),
+    this.credentialHash = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.pairedBy = const Value.absent(),
+    this.pairedByName = const Value.absent(),
+    this.lastSeenAt = const Value.absent(),
+    this.revokedAt = const Value.absent(),
+    this.revokedBy = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PairedDevicesCompanion.insert({
+    required String id,
+    required String role,
+    required String name,
+    this.platform = const Value.absent(),
+    this.appVersion = const Value.absent(),
+    required String credentialHash,
+    required int createdAt,
+    required String pairedBy,
+    required String pairedByName,
+    this.lastSeenAt = const Value.absent(),
+    this.revokedAt = const Value.absent(),
+    this.revokedBy = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       role = Value(role),
+       name = Value(name),
+       credentialHash = Value(credentialHash),
+       createdAt = Value(createdAt),
+       pairedBy = Value(pairedBy),
+       pairedByName = Value(pairedByName);
+  static Insertable<PairedDeviceRow> custom({
+    Expression<String>? id,
+    Expression<String>? role,
+    Expression<String>? name,
+    Expression<String>? platform,
+    Expression<String>? appVersion,
+    Expression<String>? credentialHash,
+    Expression<int>? createdAt,
+    Expression<String>? pairedBy,
+    Expression<String>? pairedByName,
+    Expression<int>? lastSeenAt,
+    Expression<int>? revokedAt,
+    Expression<String>? revokedBy,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (role != null) 'role': role,
+      if (name != null) 'name': name,
+      if (platform != null) 'platform': platform,
+      if (appVersion != null) 'app_version': appVersion,
+      if (credentialHash != null) 'credential_hash': credentialHash,
+      if (createdAt != null) 'created_at': createdAt,
+      if (pairedBy != null) 'paired_by': pairedBy,
+      if (pairedByName != null) 'paired_by_name': pairedByName,
+      if (lastSeenAt != null) 'last_seen_at': lastSeenAt,
+      if (revokedAt != null) 'revoked_at': revokedAt,
+      if (revokedBy != null) 'revoked_by': revokedBy,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PairedDevicesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? role,
+    Value<String>? name,
+    Value<String?>? platform,
+    Value<String?>? appVersion,
+    Value<String>? credentialHash,
+    Value<int>? createdAt,
+    Value<String>? pairedBy,
+    Value<String>? pairedByName,
+    Value<int?>? lastSeenAt,
+    Value<int?>? revokedAt,
+    Value<String?>? revokedBy,
+    Value<int>? rowid,
+  }) {
+    return PairedDevicesCompanion(
+      id: id ?? this.id,
+      role: role ?? this.role,
+      name: name ?? this.name,
+      platform: platform ?? this.platform,
+      appVersion: appVersion ?? this.appVersion,
+      credentialHash: credentialHash ?? this.credentialHash,
+      createdAt: createdAt ?? this.createdAt,
+      pairedBy: pairedBy ?? this.pairedBy,
+      pairedByName: pairedByName ?? this.pairedByName,
+      lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+      revokedAt: revokedAt ?? this.revokedAt,
+      revokedBy: revokedBy ?? this.revokedBy,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (platform.present) {
+      map['platform'] = Variable<String>(platform.value);
+    }
+    if (appVersion.present) {
+      map['app_version'] = Variable<String>(appVersion.value);
+    }
+    if (credentialHash.present) {
+      map['credential_hash'] = Variable<String>(credentialHash.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (pairedBy.present) {
+      map['paired_by'] = Variable<String>(pairedBy.value);
+    }
+    if (pairedByName.present) {
+      map['paired_by_name'] = Variable<String>(pairedByName.value);
+    }
+    if (lastSeenAt.present) {
+      map['last_seen_at'] = Variable<int>(lastSeenAt.value);
+    }
+    if (revokedAt.present) {
+      map['revoked_at'] = Variable<int>(revokedAt.value);
+    }
+    if (revokedBy.present) {
+      map['revoked_by'] = Variable<String>(revokedBy.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PairedDevicesCompanion(')
+          ..write('id: $id, ')
+          ..write('role: $role, ')
+          ..write('name: $name, ')
+          ..write('platform: $platform, ')
+          ..write('appVersion: $appVersion, ')
+          ..write('credentialHash: $credentialHash, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('pairedBy: $pairedBy, ')
+          ..write('pairedByName: $pairedByName, ')
+          ..write('lastSeenAt: $lastSeenAt, ')
+          ..write('revokedAt: $revokedAt, ')
+          ..write('revokedBy: $revokedBy, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PairingCodesTable extends PairingCodes with TableInfo<$PairingCodesTable, PairingCodeRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PairingCodesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _codeHashMeta = const VerificationMeta(
+    'codeHash',
+  );
+  @override
+  late final GeneratedColumn<String> codeHash = GeneratedColumn<String>(
+    'code_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceNameMeta = const VerificationMeta(
+    'deviceName',
+  );
+  @override
+  late final GeneratedColumn<String> deviceName = GeneratedColumn<String>(
+    'device_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<int> expiresAt = GeneratedColumn<int>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _usedAtMeta = const VerificationMeta('usedAt');
+  @override
+  late final GeneratedColumn<int> usedAt = GeneratedColumn<int>(
+    'used_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _usedByDeviceIdMeta = const VerificationMeta(
+    'usedByDeviceId',
+  );
+  @override
+  late final GeneratedColumn<String> usedByDeviceId = GeneratedColumn<String>(
+    'used_by_device_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cancelledAtMeta = const VerificationMeta(
+    'cancelledAt',
+  );
+  @override
+  late final GeneratedColumn<int> cancelledAt = GeneratedColumn<int>(
+    'cancelled_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    codeHash,
+    role,
+    deviceName,
+    createdBy,
+    createdAt,
+    expiresAt,
+    usedAt,
+    usedByDeviceId,
+    cancelledAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pairing_codes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PairingCodeRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('code_hash')) {
+      context.handle(
+        _codeHashMeta,
+        codeHash.isAcceptableOrUnknown(data['code_hash']!, _codeHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_codeHashMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('device_name')) {
+      context.handle(
+        _deviceNameMeta,
+        deviceName.isAcceptableOrUnknown(data['device_name']!, _deviceNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceNameMeta);
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdByMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    if (data.containsKey('used_at')) {
+      context.handle(
+        _usedAtMeta,
+        usedAt.isAcceptableOrUnknown(data['used_at']!, _usedAtMeta),
+      );
+    }
+    if (data.containsKey('used_by_device_id')) {
+      context.handle(
+        _usedByDeviceIdMeta,
+        usedByDeviceId.isAcceptableOrUnknown(
+          data['used_by_device_id']!,
+          _usedByDeviceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cancelled_at')) {
+      context.handle(
+        _cancelledAtMeta,
+        cancelledAt.isAcceptableOrUnknown(
+          data['cancelled_at']!,
+          _cancelledAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PairingCodeRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PairingCodeRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      codeHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}code_hash'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+      deviceName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_name'],
+      )!,
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}expires_at'],
+      )!,
+      usedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}used_at'],
+      ),
+      usedByDeviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}used_by_device_id'],
+      ),
+      cancelledAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cancelled_at'],
+      ),
+    );
+  }
+
+  @override
+  $PairingCodesTable createAlias(String alias) {
+    return $PairingCodesTable(attachedDatabase, alias);
+  }
+}
+
+class PairingCodeRow extends DataClass implements Insertable<PairingCodeRow> {
+  final String id;
+  final String codeHash;
+  final String role;
+  final String deviceName;
+  final String createdBy;
+  final int createdAt;
+  final int expiresAt;
+  final int? usedAt;
+  final String? usedByDeviceId;
+  final int? cancelledAt;
+  const PairingCodeRow({
+    required this.id,
+    required this.codeHash,
+    required this.role,
+    required this.deviceName,
+    required this.createdBy,
+    required this.createdAt,
+    required this.expiresAt,
+    this.usedAt,
+    this.usedByDeviceId,
+    this.cancelledAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['code_hash'] = Variable<String>(codeHash);
+    map['role'] = Variable<String>(role);
+    map['device_name'] = Variable<String>(deviceName);
+    map['created_by'] = Variable<String>(createdBy);
+    map['created_at'] = Variable<int>(createdAt);
+    map['expires_at'] = Variable<int>(expiresAt);
+    if (!nullToAbsent || usedAt != null) {
+      map['used_at'] = Variable<int>(usedAt);
+    }
+    if (!nullToAbsent || usedByDeviceId != null) {
+      map['used_by_device_id'] = Variable<String>(usedByDeviceId);
+    }
+    if (!nullToAbsent || cancelledAt != null) {
+      map['cancelled_at'] = Variable<int>(cancelledAt);
+    }
+    return map;
+  }
+
+  PairingCodesCompanion toCompanion(bool nullToAbsent) {
+    return PairingCodesCompanion(
+      id: Value(id),
+      codeHash: Value(codeHash),
+      role: Value(role),
+      deviceName: Value(deviceName),
+      createdBy: Value(createdBy),
+      createdAt: Value(createdAt),
+      expiresAt: Value(expiresAt),
+      usedAt: usedAt == null && nullToAbsent ? const Value.absent() : Value(usedAt),
+      usedByDeviceId: usedByDeviceId == null && nullToAbsent ? const Value.absent() : Value(usedByDeviceId),
+      cancelledAt: cancelledAt == null && nullToAbsent ? const Value.absent() : Value(cancelledAt),
+    );
+  }
+
+  factory PairingCodeRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PairingCodeRow(
+      id: serializer.fromJson<String>(json['id']),
+      codeHash: serializer.fromJson<String>(json['codeHash']),
+      role: serializer.fromJson<String>(json['role']),
+      deviceName: serializer.fromJson<String>(json['deviceName']),
+      createdBy: serializer.fromJson<String>(json['createdBy']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      expiresAt: serializer.fromJson<int>(json['expiresAt']),
+      usedAt: serializer.fromJson<int?>(json['usedAt']),
+      usedByDeviceId: serializer.fromJson<String?>(json['usedByDeviceId']),
+      cancelledAt: serializer.fromJson<int?>(json['cancelledAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'codeHash': serializer.toJson<String>(codeHash),
+      'role': serializer.toJson<String>(role),
+      'deviceName': serializer.toJson<String>(deviceName),
+      'createdBy': serializer.toJson<String>(createdBy),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'expiresAt': serializer.toJson<int>(expiresAt),
+      'usedAt': serializer.toJson<int?>(usedAt),
+      'usedByDeviceId': serializer.toJson<String?>(usedByDeviceId),
+      'cancelledAt': serializer.toJson<int?>(cancelledAt),
+    };
+  }
+
+  PairingCodeRow copyWith({
+    String? id,
+    String? codeHash,
+    String? role,
+    String? deviceName,
+    String? createdBy,
+    int? createdAt,
+    int? expiresAt,
+    Value<int?> usedAt = const Value.absent(),
+    Value<String?> usedByDeviceId = const Value.absent(),
+    Value<int?> cancelledAt = const Value.absent(),
+  }) => PairingCodeRow(
+    id: id ?? this.id,
+    codeHash: codeHash ?? this.codeHash,
+    role: role ?? this.role,
+    deviceName: deviceName ?? this.deviceName,
+    createdBy: createdBy ?? this.createdBy,
+    createdAt: createdAt ?? this.createdAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+    usedAt: usedAt.present ? usedAt.value : this.usedAt,
+    usedByDeviceId: usedByDeviceId.present ? usedByDeviceId.value : this.usedByDeviceId,
+    cancelledAt: cancelledAt.present ? cancelledAt.value : this.cancelledAt,
+  );
+  PairingCodeRow copyWithCompanion(PairingCodesCompanion data) {
+    return PairingCodeRow(
+      id: data.id.present ? data.id.value : this.id,
+      codeHash: data.codeHash.present ? data.codeHash.value : this.codeHash,
+      role: data.role.present ? data.role.value : this.role,
+      deviceName: data.deviceName.present ? data.deviceName.value : this.deviceName,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      usedAt: data.usedAt.present ? data.usedAt.value : this.usedAt,
+      usedByDeviceId: data.usedByDeviceId.present ? data.usedByDeviceId.value : this.usedByDeviceId,
+      cancelledAt: data.cancelledAt.present ? data.cancelledAt.value : this.cancelledAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PairingCodeRow(')
+          ..write('id: $id, ')
+          ..write('codeHash: $codeHash, ')
+          ..write('role: $role, ')
+          ..write('deviceName: $deviceName, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('usedAt: $usedAt, ')
+          ..write('usedByDeviceId: $usedByDeviceId, ')
+          ..write('cancelledAt: $cancelledAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    codeHash,
+    role,
+    deviceName,
+    createdBy,
+    createdAt,
+    expiresAt,
+    usedAt,
+    usedByDeviceId,
+    cancelledAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PairingCodeRow &&
+          other.id == this.id &&
+          other.codeHash == this.codeHash &&
+          other.role == this.role &&
+          other.deviceName == this.deviceName &&
+          other.createdBy == this.createdBy &&
+          other.createdAt == this.createdAt &&
+          other.expiresAt == this.expiresAt &&
+          other.usedAt == this.usedAt &&
+          other.usedByDeviceId == this.usedByDeviceId &&
+          other.cancelledAt == this.cancelledAt);
+}
+
+class PairingCodesCompanion extends UpdateCompanion<PairingCodeRow> {
+  final Value<String> id;
+  final Value<String> codeHash;
+  final Value<String> role;
+  final Value<String> deviceName;
+  final Value<String> createdBy;
+  final Value<int> createdAt;
+  final Value<int> expiresAt;
+  final Value<int?> usedAt;
+  final Value<String?> usedByDeviceId;
+  final Value<int?> cancelledAt;
+  final Value<int> rowid;
+  const PairingCodesCompanion({
+    this.id = const Value.absent(),
+    this.codeHash = const Value.absent(),
+    this.role = const Value.absent(),
+    this.deviceName = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.usedAt = const Value.absent(),
+    this.usedByDeviceId = const Value.absent(),
+    this.cancelledAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PairingCodesCompanion.insert({
+    required String id,
+    required String codeHash,
+    required String role,
+    required String deviceName,
+    required String createdBy,
+    required int createdAt,
+    required int expiresAt,
+    this.usedAt = const Value.absent(),
+    this.usedByDeviceId = const Value.absent(),
+    this.cancelledAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       codeHash = Value(codeHash),
+       role = Value(role),
+       deviceName = Value(deviceName),
+       createdBy = Value(createdBy),
+       createdAt = Value(createdAt),
+       expiresAt = Value(expiresAt);
+  static Insertable<PairingCodeRow> custom({
+    Expression<String>? id,
+    Expression<String>? codeHash,
+    Expression<String>? role,
+    Expression<String>? deviceName,
+    Expression<String>? createdBy,
+    Expression<int>? createdAt,
+    Expression<int>? expiresAt,
+    Expression<int>? usedAt,
+    Expression<String>? usedByDeviceId,
+    Expression<int>? cancelledAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (codeHash != null) 'code_hash': codeHash,
+      if (role != null) 'role': role,
+      if (deviceName != null) 'device_name': deviceName,
+      if (createdBy != null) 'created_by': createdBy,
+      if (createdAt != null) 'created_at': createdAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (usedAt != null) 'used_at': usedAt,
+      if (usedByDeviceId != null) 'used_by_device_id': usedByDeviceId,
+      if (cancelledAt != null) 'cancelled_at': cancelledAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PairingCodesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? codeHash,
+    Value<String>? role,
+    Value<String>? deviceName,
+    Value<String>? createdBy,
+    Value<int>? createdAt,
+    Value<int>? expiresAt,
+    Value<int?>? usedAt,
+    Value<String?>? usedByDeviceId,
+    Value<int?>? cancelledAt,
+    Value<int>? rowid,
+  }) {
+    return PairingCodesCompanion(
+      id: id ?? this.id,
+      codeHash: codeHash ?? this.codeHash,
+      role: role ?? this.role,
+      deviceName: deviceName ?? this.deviceName,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      usedAt: usedAt ?? this.usedAt,
+      usedByDeviceId: usedByDeviceId ?? this.usedByDeviceId,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (codeHash.present) {
+      map['code_hash'] = Variable<String>(codeHash.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (deviceName.present) {
+      map['device_name'] = Variable<String>(deviceName.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<int>(expiresAt.value);
+    }
+    if (usedAt.present) {
+      map['used_at'] = Variable<int>(usedAt.value);
+    }
+    if (usedByDeviceId.present) {
+      map['used_by_device_id'] = Variable<String>(usedByDeviceId.value);
+    }
+    if (cancelledAt.present) {
+      map['cancelled_at'] = Variable<int>(cancelledAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PairingCodesCompanion(')
+          ..write('id: $id, ')
+          ..write('codeHash: $codeHash, ')
+          ..write('role: $role, ')
+          ..write('deviceName: $deviceName, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('usedAt: $usedAt, ')
+          ..write('usedByDeviceId: $usedByDeviceId, ')
+          ..write('cancelledAt: $cancelledAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $StaffSessionsTable extends StaffSessions with TableInfo<$StaffSessionsTable, StaffSessionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StaffSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _staffIdMeta = const VerificationMeta(
+    'staffId',
+  );
+  @override
+  late final GeneratedColumn<String> staffId = GeneratedColumn<String>(
+    'staff_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES staff (id)',
+    ),
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES paired_devices (id)',
+    ),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<int> expiresAt = GeneratedColumn<int>(
+    'expires_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastSeenAtMeta = const VerificationMeta(
+    'lastSeenAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastSeenAt = GeneratedColumn<int>(
+    'last_seen_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _revokedAtMeta = const VerificationMeta(
+    'revokedAt',
+  );
+  @override
+  late final GeneratedColumn<int> revokedAt = GeneratedColumn<int>(
+    'revoked_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _revokedReasonMeta = const VerificationMeta(
+    'revokedReason',
+  );
+  @override
+  late final GeneratedColumn<String> revokedReason = GeneratedColumn<String>(
+    'revoked_reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    staffId,
+    deviceId,
+    createdAt,
+    expiresAt,
+    lastSeenAt,
+    revokedAt,
+    revokedReason,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'staff_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StaffSessionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('staff_id')) {
+      context.handle(
+        _staffIdMeta,
+        staffId.isAcceptableOrUnknown(data['staff_id']!, _staffIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_staffIdMeta);
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiresAtMeta);
+    }
+    if (data.containsKey('last_seen_at')) {
+      context.handle(
+        _lastSeenAtMeta,
+        lastSeenAt.isAcceptableOrUnknown(
+          data['last_seen_at']!,
+          _lastSeenAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('revoked_at')) {
+      context.handle(
+        _revokedAtMeta,
+        revokedAt.isAcceptableOrUnknown(data['revoked_at']!, _revokedAtMeta),
+      );
+    }
+    if (data.containsKey('revoked_reason')) {
+      context.handle(
+        _revokedReasonMeta,
+        revokedReason.isAcceptableOrUnknown(
+          data['revoked_reason']!,
+          _revokedReasonMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  StaffSessionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StaffSessionRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      staffId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}staff_id'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}expires_at'],
+      )!,
+      lastSeenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_seen_at'],
+      ),
+      revokedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}revoked_at'],
+      ),
+      revokedReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}revoked_reason'],
+      ),
+    );
+  }
+
+  @override
+  $StaffSessionsTable createAlias(String alias) {
+    return $StaffSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class StaffSessionRow extends DataClass implements Insertable<StaffSessionRow> {
+  final String id;
+  final String staffId;
+  final String deviceId;
+  final int createdAt;
+  final int expiresAt;
+  final int? lastSeenAt;
+  final int? revokedAt;
+  final String? revokedReason;
+  const StaffSessionRow({
+    required this.id,
+    required this.staffId,
+    required this.deviceId,
+    required this.createdAt,
+    required this.expiresAt,
+    this.lastSeenAt,
+    this.revokedAt,
+    this.revokedReason,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['staff_id'] = Variable<String>(staffId);
+    map['device_id'] = Variable<String>(deviceId);
+    map['created_at'] = Variable<int>(createdAt);
+    map['expires_at'] = Variable<int>(expiresAt);
+    if (!nullToAbsent || lastSeenAt != null) {
+      map['last_seen_at'] = Variable<int>(lastSeenAt);
+    }
+    if (!nullToAbsent || revokedAt != null) {
+      map['revoked_at'] = Variable<int>(revokedAt);
+    }
+    if (!nullToAbsent || revokedReason != null) {
+      map['revoked_reason'] = Variable<String>(revokedReason);
+    }
+    return map;
+  }
+
+  StaffSessionsCompanion toCompanion(bool nullToAbsent) {
+    return StaffSessionsCompanion(
+      id: Value(id),
+      staffId: Value(staffId),
+      deviceId: Value(deviceId),
+      createdAt: Value(createdAt),
+      expiresAt: Value(expiresAt),
+      lastSeenAt: lastSeenAt == null && nullToAbsent ? const Value.absent() : Value(lastSeenAt),
+      revokedAt: revokedAt == null && nullToAbsent ? const Value.absent() : Value(revokedAt),
+      revokedReason: revokedReason == null && nullToAbsent ? const Value.absent() : Value(revokedReason),
+    );
+  }
+
+  factory StaffSessionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StaffSessionRow(
+      id: serializer.fromJson<String>(json['id']),
+      staffId: serializer.fromJson<String>(json['staffId']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      expiresAt: serializer.fromJson<int>(json['expiresAt']),
+      lastSeenAt: serializer.fromJson<int?>(json['lastSeenAt']),
+      revokedAt: serializer.fromJson<int?>(json['revokedAt']),
+      revokedReason: serializer.fromJson<String?>(json['revokedReason']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'staffId': serializer.toJson<String>(staffId),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'expiresAt': serializer.toJson<int>(expiresAt),
+      'lastSeenAt': serializer.toJson<int?>(lastSeenAt),
+      'revokedAt': serializer.toJson<int?>(revokedAt),
+      'revokedReason': serializer.toJson<String?>(revokedReason),
+    };
+  }
+
+  StaffSessionRow copyWith({
+    String? id,
+    String? staffId,
+    String? deviceId,
+    int? createdAt,
+    int? expiresAt,
+    Value<int?> lastSeenAt = const Value.absent(),
+    Value<int?> revokedAt = const Value.absent(),
+    Value<String?> revokedReason = const Value.absent(),
+  }) => StaffSessionRow(
+    id: id ?? this.id,
+    staffId: staffId ?? this.staffId,
+    deviceId: deviceId ?? this.deviceId,
+    createdAt: createdAt ?? this.createdAt,
+    expiresAt: expiresAt ?? this.expiresAt,
+    lastSeenAt: lastSeenAt.present ? lastSeenAt.value : this.lastSeenAt,
+    revokedAt: revokedAt.present ? revokedAt.value : this.revokedAt,
+    revokedReason: revokedReason.present ? revokedReason.value : this.revokedReason,
+  );
+  StaffSessionRow copyWithCompanion(StaffSessionsCompanion data) {
+    return StaffSessionRow(
+      id: data.id.present ? data.id.value : this.id,
+      staffId: data.staffId.present ? data.staffId.value : this.staffId,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      lastSeenAt: data.lastSeenAt.present ? data.lastSeenAt.value : this.lastSeenAt,
+      revokedAt: data.revokedAt.present ? data.revokedAt.value : this.revokedAt,
+      revokedReason: data.revokedReason.present ? data.revokedReason.value : this.revokedReason,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StaffSessionRow(')
+          ..write('id: $id, ')
+          ..write('staffId: $staffId, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('lastSeenAt: $lastSeenAt, ')
+          ..write('revokedAt: $revokedAt, ')
+          ..write('revokedReason: $revokedReason')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    staffId,
+    deviceId,
+    createdAt,
+    expiresAt,
+    lastSeenAt,
+    revokedAt,
+    revokedReason,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StaffSessionRow &&
+          other.id == this.id &&
+          other.staffId == this.staffId &&
+          other.deviceId == this.deviceId &&
+          other.createdAt == this.createdAt &&
+          other.expiresAt == this.expiresAt &&
+          other.lastSeenAt == this.lastSeenAt &&
+          other.revokedAt == this.revokedAt &&
+          other.revokedReason == this.revokedReason);
+}
+
+class StaffSessionsCompanion extends UpdateCompanion<StaffSessionRow> {
+  final Value<String> id;
+  final Value<String> staffId;
+  final Value<String> deviceId;
+  final Value<int> createdAt;
+  final Value<int> expiresAt;
+  final Value<int?> lastSeenAt;
+  final Value<int?> revokedAt;
+  final Value<String?> revokedReason;
+  final Value<int> rowid;
+  const StaffSessionsCompanion({
+    this.id = const Value.absent(),
+    this.staffId = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.lastSeenAt = const Value.absent(),
+    this.revokedAt = const Value.absent(),
+    this.revokedReason = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StaffSessionsCompanion.insert({
+    required String id,
+    required String staffId,
+    required String deviceId,
+    required int createdAt,
+    required int expiresAt,
+    this.lastSeenAt = const Value.absent(),
+    this.revokedAt = const Value.absent(),
+    this.revokedReason = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       staffId = Value(staffId),
+       deviceId = Value(deviceId),
+       createdAt = Value(createdAt),
+       expiresAt = Value(expiresAt);
+  static Insertable<StaffSessionRow> custom({
+    Expression<String>? id,
+    Expression<String>? staffId,
+    Expression<String>? deviceId,
+    Expression<int>? createdAt,
+    Expression<int>? expiresAt,
+    Expression<int>? lastSeenAt,
+    Expression<int>? revokedAt,
+    Expression<String>? revokedReason,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (staffId != null) 'staff_id': staffId,
+      if (deviceId != null) 'device_id': deviceId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (lastSeenAt != null) 'last_seen_at': lastSeenAt,
+      if (revokedAt != null) 'revoked_at': revokedAt,
+      if (revokedReason != null) 'revoked_reason': revokedReason,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StaffSessionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? staffId,
+    Value<String>? deviceId,
+    Value<int>? createdAt,
+    Value<int>? expiresAt,
+    Value<int?>? lastSeenAt,
+    Value<int?>? revokedAt,
+    Value<String?>? revokedReason,
+    Value<int>? rowid,
+  }) {
+    return StaffSessionsCompanion(
+      id: id ?? this.id,
+      staffId: staffId ?? this.staffId,
+      deviceId: deviceId ?? this.deviceId,
+      createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+      revokedAt: revokedAt ?? this.revokedAt,
+      revokedReason: revokedReason ?? this.revokedReason,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (staffId.present) {
+      map['staff_id'] = Variable<String>(staffId.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<int>(expiresAt.value);
+    }
+    if (lastSeenAt.present) {
+      map['last_seen_at'] = Variable<int>(lastSeenAt.value);
+    }
+    if (revokedAt.present) {
+      map['revoked_at'] = Variable<int>(revokedAt.value);
+    }
+    if (revokedReason.present) {
+      map['revoked_reason'] = Variable<String>(revokedReason.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StaffSessionsCompanion(')
+          ..write('id: $id, ')
+          ..write('staffId: $staffId, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('lastSeenAt: $lastSeenAt, ')
+          ..write('revokedAt: $revokedAt, ')
+          ..write('revokedReason: $revokedReason, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CommandReceiptsTable extends CommandReceipts with TableInfo<$CommandReceiptsTable, CommandReceiptRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CommandReceiptsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _commandIdMeta = const VerificationMeta(
+    'commandId',
+  );
+  @override
+  late final GeneratedColumn<String> commandId = GeneratedColumn<String>(
+    'command_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyHashMeta = const VerificationMeta(
+    'bodyHash',
+  );
+  @override
+  late final GeneratedColumn<String> bodyHash = GeneratedColumn<String>(
+    'body_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actionMeta = const VerificationMeta('action');
+  @override
+  late final GeneratedColumn<String> action = GeneratedColumn<String>(
+    'action',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _staffIdMeta = const VerificationMeta(
+    'staffId',
+  );
+  @override
+  late final GeneratedColumn<String> staffId = GeneratedColumn<String>(
+    'staff_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hostEpochMeta = const VerificationMeta(
+    'hostEpoch',
+  );
+  @override
+  late final GeneratedColumn<int> hostEpoch = GeneratedColumn<int>(
+    'host_epoch',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _resultJsonMeta = const VerificationMeta(
+    'resultJson',
+  );
+  @override
+  late final GeneratedColumn<String> resultJson = GeneratedColumn<String>(
+    'result_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receivedAtMeta = const VerificationMeta(
+    'receivedAt',
+  );
+  @override
+  late final GeneratedColumn<int> receivedAt = GeneratedColumn<int>(
+    'received_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    commandId,
+    bodyHash,
+    action,
+    deviceId,
+    staffId,
+    hostEpoch,
+    state,
+    resultJson,
+    receivedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'command_receipts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CommandReceiptRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('command_id')) {
+      context.handle(
+        _commandIdMeta,
+        commandId.isAcceptableOrUnknown(data['command_id']!, _commandIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_commandIdMeta);
+    }
+    if (data.containsKey('body_hash')) {
+      context.handle(
+        _bodyHashMeta,
+        bodyHash.isAcceptableOrUnknown(data['body_hash']!, _bodyHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyHashMeta);
+    }
+    if (data.containsKey('action')) {
+      context.handle(
+        _actionMeta,
+        action.isAcceptableOrUnknown(data['action']!, _actionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionMeta);
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    if (data.containsKey('staff_id')) {
+      context.handle(
+        _staffIdMeta,
+        staffId.isAcceptableOrUnknown(data['staff_id']!, _staffIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_staffIdMeta);
+    }
+    if (data.containsKey('host_epoch')) {
+      context.handle(
+        _hostEpochMeta,
+        hostEpoch.isAcceptableOrUnknown(data['host_epoch']!, _hostEpochMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hostEpochMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('result_json')) {
+      context.handle(
+        _resultJsonMeta,
+        resultJson.isAcceptableOrUnknown(data['result_json']!, _resultJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_resultJsonMeta);
+    }
+    if (data.containsKey('received_at')) {
+      context.handle(
+        _receivedAtMeta,
+        receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_receivedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {commandId};
+  @override
+  CommandReceiptRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CommandReceiptRow(
+      commandId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}command_id'],
+      )!,
+      bodyHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body_hash'],
+      )!,
+      action: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
+      staffId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}staff_id'],
+      )!,
+      hostEpoch: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}host_epoch'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      resultJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}result_json'],
+      )!,
+      receivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}received_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CommandReceiptsTable createAlias(String alias) {
+    return $CommandReceiptsTable(attachedDatabase, alias);
+  }
+}
+
+class CommandReceiptRow extends DataClass implements Insertable<CommandReceiptRow> {
+  final String commandId;
+  final String bodyHash;
+  final String action;
+  final String deviceId;
+  final String staffId;
+  final int hostEpoch;
+  final String state;
+  final String resultJson;
+  final int receivedAt;
+  const CommandReceiptRow({
+    required this.commandId,
+    required this.bodyHash,
+    required this.action,
+    required this.deviceId,
+    required this.staffId,
+    required this.hostEpoch,
+    required this.state,
+    required this.resultJson,
+    required this.receivedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['command_id'] = Variable<String>(commandId);
+    map['body_hash'] = Variable<String>(bodyHash);
+    map['action'] = Variable<String>(action);
+    map['device_id'] = Variable<String>(deviceId);
+    map['staff_id'] = Variable<String>(staffId);
+    map['host_epoch'] = Variable<int>(hostEpoch);
+    map['state'] = Variable<String>(state);
+    map['result_json'] = Variable<String>(resultJson);
+    map['received_at'] = Variable<int>(receivedAt);
+    return map;
+  }
+
+  CommandReceiptsCompanion toCompanion(bool nullToAbsent) {
+    return CommandReceiptsCompanion(
+      commandId: Value(commandId),
+      bodyHash: Value(bodyHash),
+      action: Value(action),
+      deviceId: Value(deviceId),
+      staffId: Value(staffId),
+      hostEpoch: Value(hostEpoch),
+      state: Value(state),
+      resultJson: Value(resultJson),
+      receivedAt: Value(receivedAt),
+    );
+  }
+
+  factory CommandReceiptRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CommandReceiptRow(
+      commandId: serializer.fromJson<String>(json['commandId']),
+      bodyHash: serializer.fromJson<String>(json['bodyHash']),
+      action: serializer.fromJson<String>(json['action']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      staffId: serializer.fromJson<String>(json['staffId']),
+      hostEpoch: serializer.fromJson<int>(json['hostEpoch']),
+      state: serializer.fromJson<String>(json['state']),
+      resultJson: serializer.fromJson<String>(json['resultJson']),
+      receivedAt: serializer.fromJson<int>(json['receivedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'commandId': serializer.toJson<String>(commandId),
+      'bodyHash': serializer.toJson<String>(bodyHash),
+      'action': serializer.toJson<String>(action),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'staffId': serializer.toJson<String>(staffId),
+      'hostEpoch': serializer.toJson<int>(hostEpoch),
+      'state': serializer.toJson<String>(state),
+      'resultJson': serializer.toJson<String>(resultJson),
+      'receivedAt': serializer.toJson<int>(receivedAt),
+    };
+  }
+
+  CommandReceiptRow copyWith({
+    String? commandId,
+    String? bodyHash,
+    String? action,
+    String? deviceId,
+    String? staffId,
+    int? hostEpoch,
+    String? state,
+    String? resultJson,
+    int? receivedAt,
+  }) => CommandReceiptRow(
+    commandId: commandId ?? this.commandId,
+    bodyHash: bodyHash ?? this.bodyHash,
+    action: action ?? this.action,
+    deviceId: deviceId ?? this.deviceId,
+    staffId: staffId ?? this.staffId,
+    hostEpoch: hostEpoch ?? this.hostEpoch,
+    state: state ?? this.state,
+    resultJson: resultJson ?? this.resultJson,
+    receivedAt: receivedAt ?? this.receivedAt,
+  );
+  CommandReceiptRow copyWithCompanion(CommandReceiptsCompanion data) {
+    return CommandReceiptRow(
+      commandId: data.commandId.present ? data.commandId.value : this.commandId,
+      bodyHash: data.bodyHash.present ? data.bodyHash.value : this.bodyHash,
+      action: data.action.present ? data.action.value : this.action,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      staffId: data.staffId.present ? data.staffId.value : this.staffId,
+      hostEpoch: data.hostEpoch.present ? data.hostEpoch.value : this.hostEpoch,
+      state: data.state.present ? data.state.value : this.state,
+      resultJson: data.resultJson.present ? data.resultJson.value : this.resultJson,
+      receivedAt: data.receivedAt.present ? data.receivedAt.value : this.receivedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CommandReceiptRow(')
+          ..write('commandId: $commandId, ')
+          ..write('bodyHash: $bodyHash, ')
+          ..write('action: $action, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('staffId: $staffId, ')
+          ..write('hostEpoch: $hostEpoch, ')
+          ..write('state: $state, ')
+          ..write('resultJson: $resultJson, ')
+          ..write('receivedAt: $receivedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    commandId,
+    bodyHash,
+    action,
+    deviceId,
+    staffId,
+    hostEpoch,
+    state,
+    resultJson,
+    receivedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CommandReceiptRow &&
+          other.commandId == this.commandId &&
+          other.bodyHash == this.bodyHash &&
+          other.action == this.action &&
+          other.deviceId == this.deviceId &&
+          other.staffId == this.staffId &&
+          other.hostEpoch == this.hostEpoch &&
+          other.state == this.state &&
+          other.resultJson == this.resultJson &&
+          other.receivedAt == this.receivedAt);
+}
+
+class CommandReceiptsCompanion extends UpdateCompanion<CommandReceiptRow> {
+  final Value<String> commandId;
+  final Value<String> bodyHash;
+  final Value<String> action;
+  final Value<String> deviceId;
+  final Value<String> staffId;
+  final Value<int> hostEpoch;
+  final Value<String> state;
+  final Value<String> resultJson;
+  final Value<int> receivedAt;
+  final Value<int> rowid;
+  const CommandReceiptsCompanion({
+    this.commandId = const Value.absent(),
+    this.bodyHash = const Value.absent(),
+    this.action = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.staffId = const Value.absent(),
+    this.hostEpoch = const Value.absent(),
+    this.state = const Value.absent(),
+    this.resultJson = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CommandReceiptsCompanion.insert({
+    required String commandId,
+    required String bodyHash,
+    required String action,
+    required String deviceId,
+    required String staffId,
+    required int hostEpoch,
+    required String state,
+    required String resultJson,
+    required int receivedAt,
+    this.rowid = const Value.absent(),
+  }) : commandId = Value(commandId),
+       bodyHash = Value(bodyHash),
+       action = Value(action),
+       deviceId = Value(deviceId),
+       staffId = Value(staffId),
+       hostEpoch = Value(hostEpoch),
+       state = Value(state),
+       resultJson = Value(resultJson),
+       receivedAt = Value(receivedAt);
+  static Insertable<CommandReceiptRow> custom({
+    Expression<String>? commandId,
+    Expression<String>? bodyHash,
+    Expression<String>? action,
+    Expression<String>? deviceId,
+    Expression<String>? staffId,
+    Expression<int>? hostEpoch,
+    Expression<String>? state,
+    Expression<String>? resultJson,
+    Expression<int>? receivedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (commandId != null) 'command_id': commandId,
+      if (bodyHash != null) 'body_hash': bodyHash,
+      if (action != null) 'action': action,
+      if (deviceId != null) 'device_id': deviceId,
+      if (staffId != null) 'staff_id': staffId,
+      if (hostEpoch != null) 'host_epoch': hostEpoch,
+      if (state != null) 'state': state,
+      if (resultJson != null) 'result_json': resultJson,
+      if (receivedAt != null) 'received_at': receivedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CommandReceiptsCompanion copyWith({
+    Value<String>? commandId,
+    Value<String>? bodyHash,
+    Value<String>? action,
+    Value<String>? deviceId,
+    Value<String>? staffId,
+    Value<int>? hostEpoch,
+    Value<String>? state,
+    Value<String>? resultJson,
+    Value<int>? receivedAt,
+    Value<int>? rowid,
+  }) {
+    return CommandReceiptsCompanion(
+      commandId: commandId ?? this.commandId,
+      bodyHash: bodyHash ?? this.bodyHash,
+      action: action ?? this.action,
+      deviceId: deviceId ?? this.deviceId,
+      staffId: staffId ?? this.staffId,
+      hostEpoch: hostEpoch ?? this.hostEpoch,
+      state: state ?? this.state,
+      resultJson: resultJson ?? this.resultJson,
+      receivedAt: receivedAt ?? this.receivedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (commandId.present) {
+      map['command_id'] = Variable<String>(commandId.value);
+    }
+    if (bodyHash.present) {
+      map['body_hash'] = Variable<String>(bodyHash.value);
+    }
+    if (action.present) {
+      map['action'] = Variable<String>(action.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (staffId.present) {
+      map['staff_id'] = Variable<String>(staffId.value);
+    }
+    if (hostEpoch.present) {
+      map['host_epoch'] = Variable<int>(hostEpoch.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (resultJson.present) {
+      map['result_json'] = Variable<String>(resultJson.value);
+    }
+    if (receivedAt.present) {
+      map['received_at'] = Variable<int>(receivedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CommandReceiptsCompanion(')
+          ..write('commandId: $commandId, ')
+          ..write('bodyHash: $bodyHash, ')
+          ..write('action: $action, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('staffId: $staffId, ')
+          ..write('hostEpoch: $hostEpoch, ')
+          ..write('state: $state, ')
+          ..write('resultJson: $resultJson, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $HostEventsTable extends HostEvents with TableInfo<$HostEventsTable, HostEventRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HostEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _hostEpochMeta = const VerificationMeta(
+    'hostEpoch',
+  );
+  @override
+  late final GeneratedColumn<int> hostEpoch = GeneratedColumn<int>(
+    'host_epoch',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sequenceMeta = const VerificationMeta(
+    'sequence',
+  );
+  @override
+  late final GeneratedColumn<int> sequence = GeneratedColumn<int>(
+    'sequence',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _eventIdMeta = const VerificationMeta(
+    'eventId',
+  );
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+    'event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _aggregateTypeMeta = const VerificationMeta(
+    'aggregateType',
+  );
+  @override
+  late final GeneratedColumn<String> aggregateType = GeneratedColumn<String>(
+    'aggregate_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _aggregateIdMeta = const VerificationMeta(
+    'aggregateId',
+  );
+  @override
+  late final GeneratedColumn<String> aggregateId = GeneratedColumn<String>(
+    'aggregate_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _revisionMeta = const VerificationMeta(
+    'revision',
+  );
+  @override
+  late final GeneratedColumn<int> revision = GeneratedColumn<int>(
+    'revision',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _committedAtMeta = const VerificationMeta(
+    'committedAt',
+  );
+  @override
+  late final GeneratedColumn<int> committedAt = GeneratedColumn<int>(
+    'committed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _businessDateMeta = const VerificationMeta(
+    'businessDate',
+  );
+  @override
+  late final GeneratedColumn<String> businessDate = GeneratedColumn<String>(
+    'business_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _audienceMeta = const VerificationMeta(
+    'audience',
+  );
+  @override
+  late final GeneratedColumn<String> audience = GeneratedColumn<String>(
+    'audience',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _eventJsonMeta = const VerificationMeta(
+    'eventJson',
+  );
+  @override
+  late final GeneratedColumn<String> eventJson = GeneratedColumn<String>(
+    'event_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentHashMeta = const VerificationMeta(
+    'contentHash',
+  );
+  @override
+  late final GeneratedColumn<String> contentHash = GeneratedColumn<String>(
+    'content_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _cloudAckedAtMeta = const VerificationMeta(
+    'cloudAckedAt',
+  );
+  @override
+  late final GeneratedColumn<int> cloudAckedAt = GeneratedColumn<int>(
+    'cloud_acked_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    hostEpoch,
+    sequence,
+    eventId,
+    type,
+    aggregateType,
+    aggregateId,
+    revision,
+    committedAt,
+    businessDate,
+    audience,
+    eventJson,
+    contentHash,
+    cloudAckedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'host_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<HostEventRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('host_epoch')) {
+      context.handle(
+        _hostEpochMeta,
+        hostEpoch.isAcceptableOrUnknown(data['host_epoch']!, _hostEpochMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hostEpochMeta);
+    }
+    if (data.containsKey('sequence')) {
+      context.handle(
+        _sequenceMeta,
+        sequence.isAcceptableOrUnknown(data['sequence']!, _sequenceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sequenceMeta);
+    }
+    if (data.containsKey('event_id')) {
+      context.handle(
+        _eventIdMeta,
+        eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventIdMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('aggregate_type')) {
+      context.handle(
+        _aggregateTypeMeta,
+        aggregateType.isAcceptableOrUnknown(
+          data['aggregate_type']!,
+          _aggregateTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_aggregateTypeMeta);
+    }
+    if (data.containsKey('aggregate_id')) {
+      context.handle(
+        _aggregateIdMeta,
+        aggregateId.isAcceptableOrUnknown(
+          data['aggregate_id']!,
+          _aggregateIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_aggregateIdMeta);
+    }
+    if (data.containsKey('revision')) {
+      context.handle(
+        _revisionMeta,
+        revision.isAcceptableOrUnknown(data['revision']!, _revisionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_revisionMeta);
+    }
+    if (data.containsKey('committed_at')) {
+      context.handle(
+        _committedAtMeta,
+        committedAt.isAcceptableOrUnknown(
+          data['committed_at']!,
+          _committedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_committedAtMeta);
+    }
+    if (data.containsKey('business_date')) {
+      context.handle(
+        _businessDateMeta,
+        businessDate.isAcceptableOrUnknown(
+          data['business_date']!,
+          _businessDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('audience')) {
+      context.handle(
+        _audienceMeta,
+        audience.isAcceptableOrUnknown(data['audience']!, _audienceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_audienceMeta);
+    }
+    if (data.containsKey('event_json')) {
+      context.handle(
+        _eventJsonMeta,
+        eventJson.isAcceptableOrUnknown(data['event_json']!, _eventJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventJsonMeta);
+    }
+    if (data.containsKey('content_hash')) {
+      context.handle(
+        _contentHashMeta,
+        contentHash.isAcceptableOrUnknown(
+          data['content_hash']!,
+          _contentHashMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentHashMeta);
+    }
+    if (data.containsKey('cloud_acked_at')) {
+      context.handle(
+        _cloudAckedAtMeta,
+        cloudAckedAt.isAcceptableOrUnknown(
+          data['cloud_acked_at']!,
+          _cloudAckedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {hostEpoch, sequence};
+  @override
+  HostEventRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return HostEventRow(
+      hostEpoch: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}host_epoch'],
+      )!,
+      sequence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sequence'],
+      )!,
+      eventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_id'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      aggregateType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}aggregate_type'],
+      )!,
+      aggregateId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}aggregate_id'],
+      )!,
+      revision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}revision'],
+      )!,
+      committedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}committed_at'],
+      )!,
+      businessDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}business_date'],
+      ),
+      audience: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}audience'],
+      )!,
+      eventJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_json'],
+      )!,
+      contentHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_hash'],
+      )!,
+      cloudAckedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cloud_acked_at'],
+      ),
+    );
+  }
+
+  @override
+  $HostEventsTable createAlias(String alias) {
+    return $HostEventsTable(attachedDatabase, alias);
+  }
+}
+
+class HostEventRow extends DataClass implements Insertable<HostEventRow> {
+  final int hostEpoch;
+  final int sequence;
+  final String eventId;
+  final String type;
+  final String aggregateType;
+  final String aggregateId;
+  final int revision;
+  final int committedAt;
+  final String? businessDate;
+
+  /// 'devices' (devices + cloud) or 'cloud' (cloud only).
+  final String audience;
+
+  /// The complete event envelope, canonical JSON.
+  final String eventJson;
+  final String contentHash;
+  final int? cloudAckedAt;
+  const HostEventRow({
+    required this.hostEpoch,
+    required this.sequence,
+    required this.eventId,
+    required this.type,
+    required this.aggregateType,
+    required this.aggregateId,
+    required this.revision,
+    required this.committedAt,
+    this.businessDate,
+    required this.audience,
+    required this.eventJson,
+    required this.contentHash,
+    this.cloudAckedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['host_epoch'] = Variable<int>(hostEpoch);
+    map['sequence'] = Variable<int>(sequence);
+    map['event_id'] = Variable<String>(eventId);
+    map['type'] = Variable<String>(type);
+    map['aggregate_type'] = Variable<String>(aggregateType);
+    map['aggregate_id'] = Variable<String>(aggregateId);
+    map['revision'] = Variable<int>(revision);
+    map['committed_at'] = Variable<int>(committedAt);
+    if (!nullToAbsent || businessDate != null) {
+      map['business_date'] = Variable<String>(businessDate);
+    }
+    map['audience'] = Variable<String>(audience);
+    map['event_json'] = Variable<String>(eventJson);
+    map['content_hash'] = Variable<String>(contentHash);
+    if (!nullToAbsent || cloudAckedAt != null) {
+      map['cloud_acked_at'] = Variable<int>(cloudAckedAt);
+    }
+    return map;
+  }
+
+  HostEventsCompanion toCompanion(bool nullToAbsent) {
+    return HostEventsCompanion(
+      hostEpoch: Value(hostEpoch),
+      sequence: Value(sequence),
+      eventId: Value(eventId),
+      type: Value(type),
+      aggregateType: Value(aggregateType),
+      aggregateId: Value(aggregateId),
+      revision: Value(revision),
+      committedAt: Value(committedAt),
+      businessDate: businessDate == null && nullToAbsent ? const Value.absent() : Value(businessDate),
+      audience: Value(audience),
+      eventJson: Value(eventJson),
+      contentHash: Value(contentHash),
+      cloudAckedAt: cloudAckedAt == null && nullToAbsent ? const Value.absent() : Value(cloudAckedAt),
+    );
+  }
+
+  factory HostEventRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return HostEventRow(
+      hostEpoch: serializer.fromJson<int>(json['hostEpoch']),
+      sequence: serializer.fromJson<int>(json['sequence']),
+      eventId: serializer.fromJson<String>(json['eventId']),
+      type: serializer.fromJson<String>(json['type']),
+      aggregateType: serializer.fromJson<String>(json['aggregateType']),
+      aggregateId: serializer.fromJson<String>(json['aggregateId']),
+      revision: serializer.fromJson<int>(json['revision']),
+      committedAt: serializer.fromJson<int>(json['committedAt']),
+      businessDate: serializer.fromJson<String?>(json['businessDate']),
+      audience: serializer.fromJson<String>(json['audience']),
+      eventJson: serializer.fromJson<String>(json['eventJson']),
+      contentHash: serializer.fromJson<String>(json['contentHash']),
+      cloudAckedAt: serializer.fromJson<int?>(json['cloudAckedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'hostEpoch': serializer.toJson<int>(hostEpoch),
+      'sequence': serializer.toJson<int>(sequence),
+      'eventId': serializer.toJson<String>(eventId),
+      'type': serializer.toJson<String>(type),
+      'aggregateType': serializer.toJson<String>(aggregateType),
+      'aggregateId': serializer.toJson<String>(aggregateId),
+      'revision': serializer.toJson<int>(revision),
+      'committedAt': serializer.toJson<int>(committedAt),
+      'businessDate': serializer.toJson<String?>(businessDate),
+      'audience': serializer.toJson<String>(audience),
+      'eventJson': serializer.toJson<String>(eventJson),
+      'contentHash': serializer.toJson<String>(contentHash),
+      'cloudAckedAt': serializer.toJson<int?>(cloudAckedAt),
+    };
+  }
+
+  HostEventRow copyWith({
+    int? hostEpoch,
+    int? sequence,
+    String? eventId,
+    String? type,
+    String? aggregateType,
+    String? aggregateId,
+    int? revision,
+    int? committedAt,
+    Value<String?> businessDate = const Value.absent(),
+    String? audience,
+    String? eventJson,
+    String? contentHash,
+    Value<int?> cloudAckedAt = const Value.absent(),
+  }) => HostEventRow(
+    hostEpoch: hostEpoch ?? this.hostEpoch,
+    sequence: sequence ?? this.sequence,
+    eventId: eventId ?? this.eventId,
+    type: type ?? this.type,
+    aggregateType: aggregateType ?? this.aggregateType,
+    aggregateId: aggregateId ?? this.aggregateId,
+    revision: revision ?? this.revision,
+    committedAt: committedAt ?? this.committedAt,
+    businessDate: businessDate.present ? businessDate.value : this.businessDate,
+    audience: audience ?? this.audience,
+    eventJson: eventJson ?? this.eventJson,
+    contentHash: contentHash ?? this.contentHash,
+    cloudAckedAt: cloudAckedAt.present ? cloudAckedAt.value : this.cloudAckedAt,
+  );
+  HostEventRow copyWithCompanion(HostEventsCompanion data) {
+    return HostEventRow(
+      hostEpoch: data.hostEpoch.present ? data.hostEpoch.value : this.hostEpoch,
+      sequence: data.sequence.present ? data.sequence.value : this.sequence,
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      type: data.type.present ? data.type.value : this.type,
+      aggregateType: data.aggregateType.present ? data.aggregateType.value : this.aggregateType,
+      aggregateId: data.aggregateId.present ? data.aggregateId.value : this.aggregateId,
+      revision: data.revision.present ? data.revision.value : this.revision,
+      committedAt: data.committedAt.present ? data.committedAt.value : this.committedAt,
+      businessDate: data.businessDate.present ? data.businessDate.value : this.businessDate,
+      audience: data.audience.present ? data.audience.value : this.audience,
+      eventJson: data.eventJson.present ? data.eventJson.value : this.eventJson,
+      contentHash: data.contentHash.present ? data.contentHash.value : this.contentHash,
+      cloudAckedAt: data.cloudAckedAt.present ? data.cloudAckedAt.value : this.cloudAckedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HostEventRow(')
+          ..write('hostEpoch: $hostEpoch, ')
+          ..write('sequence: $sequence, ')
+          ..write('eventId: $eventId, ')
+          ..write('type: $type, ')
+          ..write('aggregateType: $aggregateType, ')
+          ..write('aggregateId: $aggregateId, ')
+          ..write('revision: $revision, ')
+          ..write('committedAt: $committedAt, ')
+          ..write('businessDate: $businessDate, ')
+          ..write('audience: $audience, ')
+          ..write('eventJson: $eventJson, ')
+          ..write('contentHash: $contentHash, ')
+          ..write('cloudAckedAt: $cloudAckedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    hostEpoch,
+    sequence,
+    eventId,
+    type,
+    aggregateType,
+    aggregateId,
+    revision,
+    committedAt,
+    businessDate,
+    audience,
+    eventJson,
+    contentHash,
+    cloudAckedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is HostEventRow &&
+          other.hostEpoch == this.hostEpoch &&
+          other.sequence == this.sequence &&
+          other.eventId == this.eventId &&
+          other.type == this.type &&
+          other.aggregateType == this.aggregateType &&
+          other.aggregateId == this.aggregateId &&
+          other.revision == this.revision &&
+          other.committedAt == this.committedAt &&
+          other.businessDate == this.businessDate &&
+          other.audience == this.audience &&
+          other.eventJson == this.eventJson &&
+          other.contentHash == this.contentHash &&
+          other.cloudAckedAt == this.cloudAckedAt);
+}
+
+class HostEventsCompanion extends UpdateCompanion<HostEventRow> {
+  final Value<int> hostEpoch;
+  final Value<int> sequence;
+  final Value<String> eventId;
+  final Value<String> type;
+  final Value<String> aggregateType;
+  final Value<String> aggregateId;
+  final Value<int> revision;
+  final Value<int> committedAt;
+  final Value<String?> businessDate;
+  final Value<String> audience;
+  final Value<String> eventJson;
+  final Value<String> contentHash;
+  final Value<int?> cloudAckedAt;
+  final Value<int> rowid;
+  const HostEventsCompanion({
+    this.hostEpoch = const Value.absent(),
+    this.sequence = const Value.absent(),
+    this.eventId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.aggregateType = const Value.absent(),
+    this.aggregateId = const Value.absent(),
+    this.revision = const Value.absent(),
+    this.committedAt = const Value.absent(),
+    this.businessDate = const Value.absent(),
+    this.audience = const Value.absent(),
+    this.eventJson = const Value.absent(),
+    this.contentHash = const Value.absent(),
+    this.cloudAckedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  HostEventsCompanion.insert({
+    required int hostEpoch,
+    required int sequence,
+    required String eventId,
+    required String type,
+    required String aggregateType,
+    required String aggregateId,
+    required int revision,
+    required int committedAt,
+    this.businessDate = const Value.absent(),
+    required String audience,
+    required String eventJson,
+    required String contentHash,
+    this.cloudAckedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : hostEpoch = Value(hostEpoch),
+       sequence = Value(sequence),
+       eventId = Value(eventId),
+       type = Value(type),
+       aggregateType = Value(aggregateType),
+       aggregateId = Value(aggregateId),
+       revision = Value(revision),
+       committedAt = Value(committedAt),
+       audience = Value(audience),
+       eventJson = Value(eventJson),
+       contentHash = Value(contentHash);
+  static Insertable<HostEventRow> custom({
+    Expression<int>? hostEpoch,
+    Expression<int>? sequence,
+    Expression<String>? eventId,
+    Expression<String>? type,
+    Expression<String>? aggregateType,
+    Expression<String>? aggregateId,
+    Expression<int>? revision,
+    Expression<int>? committedAt,
+    Expression<String>? businessDate,
+    Expression<String>? audience,
+    Expression<String>? eventJson,
+    Expression<String>? contentHash,
+    Expression<int>? cloudAckedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (hostEpoch != null) 'host_epoch': hostEpoch,
+      if (sequence != null) 'sequence': sequence,
+      if (eventId != null) 'event_id': eventId,
+      if (type != null) 'type': type,
+      if (aggregateType != null) 'aggregate_type': aggregateType,
+      if (aggregateId != null) 'aggregate_id': aggregateId,
+      if (revision != null) 'revision': revision,
+      if (committedAt != null) 'committed_at': committedAt,
+      if (businessDate != null) 'business_date': businessDate,
+      if (audience != null) 'audience': audience,
+      if (eventJson != null) 'event_json': eventJson,
+      if (contentHash != null) 'content_hash': contentHash,
+      if (cloudAckedAt != null) 'cloud_acked_at': cloudAckedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  HostEventsCompanion copyWith({
+    Value<int>? hostEpoch,
+    Value<int>? sequence,
+    Value<String>? eventId,
+    Value<String>? type,
+    Value<String>? aggregateType,
+    Value<String>? aggregateId,
+    Value<int>? revision,
+    Value<int>? committedAt,
+    Value<String?>? businessDate,
+    Value<String>? audience,
+    Value<String>? eventJson,
+    Value<String>? contentHash,
+    Value<int?>? cloudAckedAt,
+    Value<int>? rowid,
+  }) {
+    return HostEventsCompanion(
+      hostEpoch: hostEpoch ?? this.hostEpoch,
+      sequence: sequence ?? this.sequence,
+      eventId: eventId ?? this.eventId,
+      type: type ?? this.type,
+      aggregateType: aggregateType ?? this.aggregateType,
+      aggregateId: aggregateId ?? this.aggregateId,
+      revision: revision ?? this.revision,
+      committedAt: committedAt ?? this.committedAt,
+      businessDate: businessDate ?? this.businessDate,
+      audience: audience ?? this.audience,
+      eventJson: eventJson ?? this.eventJson,
+      contentHash: contentHash ?? this.contentHash,
+      cloudAckedAt: cloudAckedAt ?? this.cloudAckedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (hostEpoch.present) {
+      map['host_epoch'] = Variable<int>(hostEpoch.value);
+    }
+    if (sequence.present) {
+      map['sequence'] = Variable<int>(sequence.value);
+    }
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (aggregateType.present) {
+      map['aggregate_type'] = Variable<String>(aggregateType.value);
+    }
+    if (aggregateId.present) {
+      map['aggregate_id'] = Variable<String>(aggregateId.value);
+    }
+    if (revision.present) {
+      map['revision'] = Variable<int>(revision.value);
+    }
+    if (committedAt.present) {
+      map['committed_at'] = Variable<int>(committedAt.value);
+    }
+    if (businessDate.present) {
+      map['business_date'] = Variable<String>(businessDate.value);
+    }
+    if (audience.present) {
+      map['audience'] = Variable<String>(audience.value);
+    }
+    if (eventJson.present) {
+      map['event_json'] = Variable<String>(eventJson.value);
+    }
+    if (contentHash.present) {
+      map['content_hash'] = Variable<String>(contentHash.value);
+    }
+    if (cloudAckedAt.present) {
+      map['cloud_acked_at'] = Variable<int>(cloudAckedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HostEventsCompanion(')
+          ..write('hostEpoch: $hostEpoch, ')
+          ..write('sequence: $sequence, ')
+          ..write('eventId: $eventId, ')
+          ..write('type: $type, ')
+          ..write('aggregateType: $aggregateType, ')
+          ..write('aggregateId: $aggregateId, ')
+          ..write('revision: $revision, ')
+          ..write('committedAt: $committedAt, ')
+          ..write('businessDate: $businessDate, ')
+          ..write('audience: $audience, ')
+          ..write('eventJson: $eventJson, ')
+          ..write('contentHash: $contentHash, ')
+          ..write('cloudAckedAt: $cloudAckedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncCheckpointsTable extends SyncCheckpoints with TableInfo<$SyncCheckpointsTable, SyncCheckpointRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncCheckpointsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hostEpochMeta = const VerificationMeta(
+    'hostEpoch',
+  );
+  @override
+  late final GeneratedColumn<int> hostEpoch = GeneratedColumn<int>(
+    'host_epoch',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sequenceMeta = const VerificationMeta(
+    'sequence',
+  );
+  @override
+  late final GeneratedColumn<int> sequence = GeneratedColumn<int>(
+    'sequence',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastSuccessAtMeta = const VerificationMeta(
+    'lastSuccessAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastSuccessAt = GeneratedColumn<int>(
+    'last_success_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    name,
+    hostEpoch,
+    sequence,
+    updatedAt,
+    lastSuccessAt,
+    lastError,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_checkpoints';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncCheckpointRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('host_epoch')) {
+      context.handle(
+        _hostEpochMeta,
+        hostEpoch.isAcceptableOrUnknown(data['host_epoch']!, _hostEpochMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hostEpochMeta);
+    }
+    if (data.containsKey('sequence')) {
+      context.handle(
+        _sequenceMeta,
+        sequence.isAcceptableOrUnknown(data['sequence']!, _sequenceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sequenceMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('last_success_at')) {
+      context.handle(
+        _lastSuccessAtMeta,
+        lastSuccessAt.isAcceptableOrUnknown(
+          data['last_success_at']!,
+          _lastSuccessAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {name};
+  @override
+  SyncCheckpointRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncCheckpointRow(
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      hostEpoch: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}host_epoch'],
+      )!,
+      sequence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sequence'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      lastSuccessAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_success_at'],
+      ),
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+    );
+  }
+
+  @override
+  $SyncCheckpointsTable createAlias(String alias) {
+    return $SyncCheckpointsTable(attachedDatabase, alias);
+  }
+}
+
+class SyncCheckpointRow extends DataClass implements Insertable<SyncCheckpointRow> {
+  final String name;
+  final int hostEpoch;
+  final int sequence;
+  final int updatedAt;
+  final int? lastSuccessAt;
+  final String? lastError;
+  const SyncCheckpointRow({
+    required this.name,
+    required this.hostEpoch,
+    required this.sequence,
+    required this.updatedAt,
+    this.lastSuccessAt,
+    this.lastError,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['name'] = Variable<String>(name);
+    map['host_epoch'] = Variable<int>(hostEpoch);
+    map['sequence'] = Variable<int>(sequence);
+    map['updated_at'] = Variable<int>(updatedAt);
+    if (!nullToAbsent || lastSuccessAt != null) {
+      map['last_success_at'] = Variable<int>(lastSuccessAt);
+    }
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  SyncCheckpointsCompanion toCompanion(bool nullToAbsent) {
+    return SyncCheckpointsCompanion(
+      name: Value(name),
+      hostEpoch: Value(hostEpoch),
+      sequence: Value(sequence),
+      updatedAt: Value(updatedAt),
+      lastSuccessAt: lastSuccessAt == null && nullToAbsent ? const Value.absent() : Value(lastSuccessAt),
+      lastError: lastError == null && nullToAbsent ? const Value.absent() : Value(lastError),
+    );
+  }
+
+  factory SyncCheckpointRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncCheckpointRow(
+      name: serializer.fromJson<String>(json['name']),
+      hostEpoch: serializer.fromJson<int>(json['hostEpoch']),
+      sequence: serializer.fromJson<int>(json['sequence']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+      lastSuccessAt: serializer.fromJson<int?>(json['lastSuccessAt']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'name': serializer.toJson<String>(name),
+      'hostEpoch': serializer.toJson<int>(hostEpoch),
+      'sequence': serializer.toJson<int>(sequence),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+      'lastSuccessAt': serializer.toJson<int?>(lastSuccessAt),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  SyncCheckpointRow copyWith({
+    String? name,
+    int? hostEpoch,
+    int? sequence,
+    int? updatedAt,
+    Value<int?> lastSuccessAt = const Value.absent(),
+    Value<String?> lastError = const Value.absent(),
+  }) => SyncCheckpointRow(
+    name: name ?? this.name,
+    hostEpoch: hostEpoch ?? this.hostEpoch,
+    sequence: sequence ?? this.sequence,
+    updatedAt: updatedAt ?? this.updatedAt,
+    lastSuccessAt: lastSuccessAt.present ? lastSuccessAt.value : this.lastSuccessAt,
+    lastError: lastError.present ? lastError.value : this.lastError,
+  );
+  SyncCheckpointRow copyWithCompanion(SyncCheckpointsCompanion data) {
+    return SyncCheckpointRow(
+      name: data.name.present ? data.name.value : this.name,
+      hostEpoch: data.hostEpoch.present ? data.hostEpoch.value : this.hostEpoch,
+      sequence: data.sequence.present ? data.sequence.value : this.sequence,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      lastSuccessAt: data.lastSuccessAt.present ? data.lastSuccessAt.value : this.lastSuccessAt,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncCheckpointRow(')
+          ..write('name: $name, ')
+          ..write('hostEpoch: $hostEpoch, ')
+          ..write('sequence: $sequence, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('lastSuccessAt: $lastSuccessAt, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    name,
+    hostEpoch,
+    sequence,
+    updatedAt,
+    lastSuccessAt,
+    lastError,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncCheckpointRow &&
+          other.name == this.name &&
+          other.hostEpoch == this.hostEpoch &&
+          other.sequence == this.sequence &&
+          other.updatedAt == this.updatedAt &&
+          other.lastSuccessAt == this.lastSuccessAt &&
+          other.lastError == this.lastError);
+}
+
+class SyncCheckpointsCompanion extends UpdateCompanion<SyncCheckpointRow> {
+  final Value<String> name;
+  final Value<int> hostEpoch;
+  final Value<int> sequence;
+  final Value<int> updatedAt;
+  final Value<int?> lastSuccessAt;
+  final Value<String?> lastError;
+  final Value<int> rowid;
+  const SyncCheckpointsCompanion({
+    this.name = const Value.absent(),
+    this.hostEpoch = const Value.absent(),
+    this.sequence = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.lastSuccessAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncCheckpointsCompanion.insert({
+    required String name,
+    required int hostEpoch,
+    required int sequence,
+    required int updatedAt,
+    this.lastSuccessAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : name = Value(name),
+       hostEpoch = Value(hostEpoch),
+       sequence = Value(sequence),
+       updatedAt = Value(updatedAt);
+  static Insertable<SyncCheckpointRow> custom({
+    Expression<String>? name,
+    Expression<int>? hostEpoch,
+    Expression<int>? sequence,
+    Expression<int>? updatedAt,
+    Expression<int>? lastSuccessAt,
+    Expression<String>? lastError,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (name != null) 'name': name,
+      if (hostEpoch != null) 'host_epoch': hostEpoch,
+      if (sequence != null) 'sequence': sequence,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (lastSuccessAt != null) 'last_success_at': lastSuccessAt,
+      if (lastError != null) 'last_error': lastError,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncCheckpointsCompanion copyWith({
+    Value<String>? name,
+    Value<int>? hostEpoch,
+    Value<int>? sequence,
+    Value<int>? updatedAt,
+    Value<int?>? lastSuccessAt,
+    Value<String?>? lastError,
+    Value<int>? rowid,
+  }) {
+    return SyncCheckpointsCompanion(
+      name: name ?? this.name,
+      hostEpoch: hostEpoch ?? this.hostEpoch,
+      sequence: sequence ?? this.sequence,
+      updatedAt: updatedAt ?? this.updatedAt,
+      lastSuccessAt: lastSuccessAt ?? this.lastSuccessAt,
+      lastError: lastError ?? this.lastError,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (hostEpoch.present) {
+      map['host_epoch'] = Variable<int>(hostEpoch.value);
+    }
+    if (sequence.present) {
+      map['sequence'] = Variable<int>(sequence.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (lastSuccessAt.present) {
+      map['last_success_at'] = Variable<int>(lastSuccessAt.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncCheckpointsCompanion(')
+          ..write('name: $name, ')
+          ..write('hostEpoch: $hostEpoch, ')
+          ..write('sequence: $sequence, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('lastSuccessAt: $lastSuccessAt, ')
+          ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -23356,6 +27969,17 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PrintAttemptsTable printAttempts = $PrintAttemptsTable(this);
   late final $AuditEventsTable auditEvents = $AuditEventsTable(this);
   late final $CompletedOperationsTable completedOperations = $CompletedOperationsTable(this);
+  late final $HostIdentityTable hostIdentity = $HostIdentityTable(this);
+  late final $PairedDevicesTable pairedDevices = $PairedDevicesTable(this);
+  late final $PairingCodesTable pairingCodes = $PairingCodesTable(this);
+  late final $StaffSessionsTable staffSessions = $StaffSessionsTable(this);
+  late final $CommandReceiptsTable commandReceipts = $CommandReceiptsTable(
+    this,
+  );
+  late final $HostEventsTable hostEvents = $HostEventsTable(this);
+  late final $SyncCheckpointsTable syncCheckpoints = $SyncCheckpointsTable(
+    this,
+  );
   late final Index staffEmail = Index(
     'staff_email',
     'CREATE UNIQUE INDEX staff_email ON staff (email)',
@@ -23520,6 +28144,26 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'audit_events_action',
     'CREATE INDEX audit_events_action ON audit_events ("action")',
   );
+  late final Index staffSessionsStaff = Index(
+    'staff_sessions_staff',
+    'CREATE INDEX staff_sessions_staff ON staff_sessions (staff_id)',
+  );
+  late final Index staffSessionsDevice = Index(
+    'staff_sessions_device',
+    'CREATE INDEX staff_sessions_device ON staff_sessions (device_id)',
+  );
+  late final Index commandReceiptsReceived = Index(
+    'command_receipts_received',
+    'CREATE INDEX command_receipts_received ON command_receipts (received_at)',
+  );
+  late final Index hostEventsEventId = Index(
+    'host_events_event_id',
+    'CREATE UNIQUE INDEX host_events_event_id ON host_events (event_id)',
+  );
+  late final Index hostEventsCloudPending = Index(
+    'host_events_cloud_pending',
+    'CREATE INDEX host_events_cloud_pending ON host_events (cloud_acked_at)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables => allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
@@ -23558,6 +28202,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     printAttempts,
     auditEvents,
     completedOperations,
+    hostIdentity,
+    pairedDevices,
+    pairingCodes,
+    staffSessions,
+    commandReceipts,
+    hostEvents,
+    syncCheckpoints,
     staffEmail,
     menuItemsCategory,
     itemVariantsItem,
@@ -23599,6 +28250,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     printAttemptsJob,
     auditEventsAt,
     auditEventsAction,
+    staffSessionsStaff,
+    staffSessionsDevice,
+    commandReceiptsReceived,
+    hostEventsEventId,
+    hostEventsCloudPending,
   ];
 }
 
@@ -24685,6 +29341,24 @@ final class $$StaffTableReferences extends BaseReferences<_$AppDatabase, $StaffT
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$StaffSessionsTable, List<StaffSessionRow>> _staffSessionsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.staffSessions,
+        aliasName: 'staff__id__staff_sessions__staff_id',
+      );
+
+  $$StaffSessionsTableProcessedTableManager get staffSessionsRefs {
+    final manager = $$StaffSessionsTableTableManager(
+      $_db,
+      $_db.staffSessions,
+    ).filter((f) => f.staffId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_staffSessionsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$StaffTableFilterComposer extends Composer<_$AppDatabase, $StaffTable> {
@@ -24795,6 +29469,30 @@ class $$StaffTableFilterComposer extends Composer<_$AppDatabase, $StaffTable> {
           }) => $$ShiftsTableFilterComposer(
             $db: $db,
             $table: $db.shifts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> staffSessionsRefs(
+    Expression<bool> Function($$StaffSessionsTableFilterComposer f) f,
+  ) {
+    final $$StaffSessionsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.staffSessions,
+      getReferencedColumn: (t) => t.staffId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StaffSessionsTableFilterComposer(
+            $db: $db,
+            $table: $db.staffSessions,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
@@ -24964,6 +29662,30 @@ class $$StaffTableAnnotationComposer extends Composer<_$AppDatabase, $StaffTable
     );
     return f(composer);
   }
+
+  Expression<T> staffSessionsRefs<T extends Object>(
+    Expression<T> Function($$StaffSessionsTableAnnotationComposer a) f,
+  ) {
+    final $$StaffSessionsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.staffSessions,
+      getReferencedColumn: (t) => t.staffId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StaffSessionsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.staffSessions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$StaffTableTableManager
@@ -24979,7 +29701,11 @@ class $$StaffTableTableManager
           $$StaffTableUpdateCompanionBuilder,
           (StaffRow, $$StaffTableReferences),
           StaffRow,
-          PrefetchHooks Function({bool ordersRefs, bool shiftsRefs})
+          PrefetchHooks Function({
+            bool ordersRefs,
+            bool shiftsRefs,
+            bool staffSessionsRefs,
+          })
         > {
   $$StaffTableTableManager(_$AppDatabase db, $StaffTable table)
     : super(
@@ -25057,42 +29783,60 @@ class $$StaffTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({ordersRefs = false, shiftsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (ordersRefs) db.orders,
-                if (shiftsRefs) db.shifts,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (ordersRefs)
-                    await $_getPrefetchedData<StaffRow, $StaffTable, OrderRow>(
-                      currentTable: table,
-                      referencedTable: $$StaffTableReferences._ordersRefsTable(
-                        db,
-                      ),
-                      managerFromTypedResult: (p0) => $$StaffTableReferences(db, table, p0).ordersRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.createdBy == item.id),
-                      typedResults: items,
-                    ),
-                  if (shiftsRefs)
-                    await $_getPrefetchedData<StaffRow, $StaffTable, ShiftRow>(
-                      currentTable: table,
-                      referencedTable: $$StaffTableReferences._shiftsRefsTable(
-                        db,
-                      ),
-                      managerFromTypedResult: (p0) => $$StaffTableReferences(db, table, p0).shiftsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.openedBy == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                ordersRefs = false,
+                shiftsRefs = false,
+                staffSessionsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (ordersRefs) db.orders,
+                    if (shiftsRefs) db.shifts,
+                    if (staffSessionsRefs) db.staffSessions,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (ordersRefs)
+                        await $_getPrefetchedData<StaffRow, $StaffTable, OrderRow>(
+                          currentTable: table,
+                          referencedTable: $$StaffTableReferences._ordersRefsTable(db),
+                          managerFromTypedResult: (p0) => $$StaffTableReferences(db, table, p0).ordersRefs,
+                          referencedItemsForCurrentItem: (item, referencedItems) => referencedItems.where(
+                            (e) => e.createdBy == item.id,
+                          ),
+                          typedResults: items,
+                        ),
+                      if (shiftsRefs)
+                        await $_getPrefetchedData<StaffRow, $StaffTable, ShiftRow>(
+                          currentTable: table,
+                          referencedTable: $$StaffTableReferences._shiftsRefsTable(db),
+                          managerFromTypedResult: (p0) => $$StaffTableReferences(db, table, p0).shiftsRefs,
+                          referencedItemsForCurrentItem: (item, referencedItems) => referencedItems.where(
+                            (e) => e.openedBy == item.id,
+                          ),
+                          typedResults: items,
+                        ),
+                      if (staffSessionsRefs)
+                        await $_getPrefetchedData<StaffRow, $StaffTable, StaffSessionRow>(
+                          currentTable: table,
+                          referencedTable: $$StaffTableReferences._staffSessionsRefsTable(db),
+                          managerFromTypedResult: (p0) => $$StaffTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).staffSessionsRefs,
+                          referencedItemsForCurrentItem: (item, referencedItems) => referencedItems.where(
+                            (e) => e.staffId == item.id,
+                          ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -25109,7 +29853,11 @@ typedef $$StaffTableProcessedTableManager =
       $$StaffTableUpdateCompanionBuilder,
       (StaffRow, $$StaffTableReferences),
       StaffRow,
-      PrefetchHooks Function({bool ordersRefs, bool shiftsRefs})
+      PrefetchHooks Function({
+        bool ordersRefs,
+        bool shiftsRefs,
+        bool staffSessionsRefs,
+      })
     >;
 typedef $$OwnerRecoveryTableCreateCompanionBuilder =
     OwnerRecoveryCompanion Function({
@@ -29599,6 +34347,7 @@ typedef $$KitchenTicketsTableCreateCompanionBuilder =
       required String createdByName,
       required int createdAt,
       required int updatedAt,
+      Value<int> revision,
       Value<int> rowid,
     });
 typedef $$KitchenTicketsTableUpdateCompanionBuilder =
@@ -29616,6 +34365,7 @@ typedef $$KitchenTicketsTableUpdateCompanionBuilder =
       Value<String> createdByName,
       Value<int> createdAt,
       Value<int> updatedAt,
+      Value<int> revision,
       Value<int> rowid,
     });
 
@@ -29730,6 +34480,11 @@ class $$KitchenTicketsTableFilterComposer extends Composer<_$AppDatabase, $Kitch
 
   ColumnFilters<int> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get revision => $composableBuilder(
+    column: $table.revision,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -29848,6 +34603,11 @@ class $$KitchenTicketsTableOrderingComposer extends Composer<_$AppDatabase, $Kit
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get revision => $composableBuilder(
+    column: $table.revision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$OrdersTableOrderingComposer get orderId {
     final $$OrdersTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -29911,6 +34671,8 @@ class $$KitchenTicketsTableAnnotationComposer extends Composer<_$AppDatabase, $K
   GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
   GeneratedColumn<int> get updatedAt => $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get revision => $composableBuilder(column: $table.revision, builder: (column) => column);
 
   $$OrdersTableAnnotationComposer get orderId {
     final $$OrdersTableAnnotationComposer composer = $composerBuilder(
@@ -29999,6 +34761,7 @@ class $$KitchenTicketsTableTableManager
                 Value<String> createdByName = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
+                Value<int> revision = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => KitchenTicketsCompanion(
                 id: id,
@@ -30014,6 +34777,7 @@ class $$KitchenTicketsTableTableManager
                 createdByName: createdByName,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                revision: revision,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -30031,6 +34795,7 @@ class $$KitchenTicketsTableTableManager
                 required String createdByName,
                 required int createdAt,
                 required int updatedAt,
+                Value<int> revision = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => KitchenTicketsCompanion.insert(
                 id: id,
@@ -30046,6 +34811,7 @@ class $$KitchenTicketsTableTableManager
                 createdByName: createdByName,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                revision: revision,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -41854,6 +46620,2456 @@ typedef $$CompletedOperationsTableProcessedTableManager =
       CompletedOperationRow,
       PrefetchHooks Function()
     >;
+typedef $$HostIdentityTableCreateCompanionBuilder =
+    HostIdentityCompanion Function({
+      Value<int> singleton,
+      required String restaurantId,
+      required String hostDeviceId,
+      required int hostEpoch,
+      required int epochStartSequence,
+      required int epochStartedAt,
+      required String tlsCertPem,
+      required String tlsCertSha256,
+      required String signingPublicKey,
+      required String sealPublicKey,
+      Value<int> lanPort,
+      Value<bool> lanEnabled,
+      Value<String?> cloudUrl,
+      Value<int?> cloudEnrolledAt,
+      Value<bool> reconcileRequired,
+      required int createdAt,
+      required int updatedAt,
+    });
+typedef $$HostIdentityTableUpdateCompanionBuilder =
+    HostIdentityCompanion Function({
+      Value<int> singleton,
+      Value<String> restaurantId,
+      Value<String> hostDeviceId,
+      Value<int> hostEpoch,
+      Value<int> epochStartSequence,
+      Value<int> epochStartedAt,
+      Value<String> tlsCertPem,
+      Value<String> tlsCertSha256,
+      Value<String> signingPublicKey,
+      Value<String> sealPublicKey,
+      Value<int> lanPort,
+      Value<bool> lanEnabled,
+      Value<String?> cloudUrl,
+      Value<int?> cloudEnrolledAt,
+      Value<bool> reconcileRequired,
+      Value<int> createdAt,
+      Value<int> updatedAt,
+    });
+
+class $$HostIdentityTableFilterComposer extends Composer<_$AppDatabase, $HostIdentityTable> {
+  $$HostIdentityTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get singleton => $composableBuilder(
+    column: $table.singleton,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get restaurantId => $composableBuilder(
+    column: $table.restaurantId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hostDeviceId => $composableBuilder(
+    column: $table.hostDeviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get hostEpoch => $composableBuilder(
+    column: $table.hostEpoch,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get epochStartSequence => $composableBuilder(
+    column: $table.epochStartSequence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get epochStartedAt => $composableBuilder(
+    column: $table.epochStartedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tlsCertPem => $composableBuilder(
+    column: $table.tlsCertPem,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tlsCertSha256 => $composableBuilder(
+    column: $table.tlsCertSha256,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get signingPublicKey => $composableBuilder(
+    column: $table.signingPublicKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sealPublicKey => $composableBuilder(
+    column: $table.sealPublicKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lanPort => $composableBuilder(
+    column: $table.lanPort,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get lanEnabled => $composableBuilder(
+    column: $table.lanEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cloudUrl => $composableBuilder(
+    column: $table.cloudUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cloudEnrolledAt => $composableBuilder(
+    column: $table.cloudEnrolledAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get reconcileRequired => $composableBuilder(
+    column: $table.reconcileRequired,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$HostIdentityTableOrderingComposer extends Composer<_$AppDatabase, $HostIdentityTable> {
+  $$HostIdentityTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get singleton => $composableBuilder(
+    column: $table.singleton,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get restaurantId => $composableBuilder(
+    column: $table.restaurantId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hostDeviceId => $composableBuilder(
+    column: $table.hostDeviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get hostEpoch => $composableBuilder(
+    column: $table.hostEpoch,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get epochStartSequence => $composableBuilder(
+    column: $table.epochStartSequence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get epochStartedAt => $composableBuilder(
+    column: $table.epochStartedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tlsCertPem => $composableBuilder(
+    column: $table.tlsCertPem,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tlsCertSha256 => $composableBuilder(
+    column: $table.tlsCertSha256,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get signingPublicKey => $composableBuilder(
+    column: $table.signingPublicKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sealPublicKey => $composableBuilder(
+    column: $table.sealPublicKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lanPort => $composableBuilder(
+    column: $table.lanPort,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get lanEnabled => $composableBuilder(
+    column: $table.lanEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cloudUrl => $composableBuilder(
+    column: $table.cloudUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cloudEnrolledAt => $composableBuilder(
+    column: $table.cloudEnrolledAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get reconcileRequired => $composableBuilder(
+    column: $table.reconcileRequired,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$HostIdentityTableAnnotationComposer extends Composer<_$AppDatabase, $HostIdentityTable> {
+  $$HostIdentityTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get singleton => $composableBuilder(column: $table.singleton, builder: (column) => column);
+
+  GeneratedColumn<String> get restaurantId => $composableBuilder(
+    column: $table.restaurantId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get hostDeviceId => $composableBuilder(
+    column: $table.hostDeviceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get hostEpoch => $composableBuilder(column: $table.hostEpoch, builder: (column) => column);
+
+  GeneratedColumn<int> get epochStartSequence => $composableBuilder(
+    column: $table.epochStartSequence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get epochStartedAt => $composableBuilder(
+    column: $table.epochStartedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get tlsCertPem => $composableBuilder(
+    column: $table.tlsCertPem,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get tlsCertSha256 => $composableBuilder(
+    column: $table.tlsCertSha256,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get signingPublicKey => $composableBuilder(
+    column: $table.signingPublicKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sealPublicKey => $composableBuilder(
+    column: $table.sealPublicKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lanPort => $composableBuilder(column: $table.lanPort, builder: (column) => column);
+
+  GeneratedColumn<bool> get lanEnabled => $composableBuilder(
+    column: $table.lanEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get cloudUrl => $composableBuilder(column: $table.cloudUrl, builder: (column) => column);
+
+  GeneratedColumn<int> get cloudEnrolledAt => $composableBuilder(
+    column: $table.cloudEnrolledAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get reconcileRequired => $composableBuilder(
+    column: $table.reconcileRequired,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt => $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$HostIdentityTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $HostIdentityTable,
+          HostIdentityRow,
+          $$HostIdentityTableFilterComposer,
+          $$HostIdentityTableOrderingComposer,
+          $$HostIdentityTableAnnotationComposer,
+          $$HostIdentityTableCreateCompanionBuilder,
+          $$HostIdentityTableUpdateCompanionBuilder,
+          (
+            HostIdentityRow,
+            BaseReferences<_$AppDatabase, $HostIdentityTable, HostIdentityRow>,
+          ),
+          HostIdentityRow,
+          PrefetchHooks Function()
+        > {
+  $$HostIdentityTableTableManager(_$AppDatabase db, $HostIdentityTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$HostIdentityTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$HostIdentityTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$HostIdentityTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> singleton = const Value.absent(),
+                Value<String> restaurantId = const Value.absent(),
+                Value<String> hostDeviceId = const Value.absent(),
+                Value<int> hostEpoch = const Value.absent(),
+                Value<int> epochStartSequence = const Value.absent(),
+                Value<int> epochStartedAt = const Value.absent(),
+                Value<String> tlsCertPem = const Value.absent(),
+                Value<String> tlsCertSha256 = const Value.absent(),
+                Value<String> signingPublicKey = const Value.absent(),
+                Value<String> sealPublicKey = const Value.absent(),
+                Value<int> lanPort = const Value.absent(),
+                Value<bool> lanEnabled = const Value.absent(),
+                Value<String?> cloudUrl = const Value.absent(),
+                Value<int?> cloudEnrolledAt = const Value.absent(),
+                Value<bool> reconcileRequired = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+              }) => HostIdentityCompanion(
+                singleton: singleton,
+                restaurantId: restaurantId,
+                hostDeviceId: hostDeviceId,
+                hostEpoch: hostEpoch,
+                epochStartSequence: epochStartSequence,
+                epochStartedAt: epochStartedAt,
+                tlsCertPem: tlsCertPem,
+                tlsCertSha256: tlsCertSha256,
+                signingPublicKey: signingPublicKey,
+                sealPublicKey: sealPublicKey,
+                lanPort: lanPort,
+                lanEnabled: lanEnabled,
+                cloudUrl: cloudUrl,
+                cloudEnrolledAt: cloudEnrolledAt,
+                reconcileRequired: reconcileRequired,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> singleton = const Value.absent(),
+                required String restaurantId,
+                required String hostDeviceId,
+                required int hostEpoch,
+                required int epochStartSequence,
+                required int epochStartedAt,
+                required String tlsCertPem,
+                required String tlsCertSha256,
+                required String signingPublicKey,
+                required String sealPublicKey,
+                Value<int> lanPort = const Value.absent(),
+                Value<bool> lanEnabled = const Value.absent(),
+                Value<String?> cloudUrl = const Value.absent(),
+                Value<int?> cloudEnrolledAt = const Value.absent(),
+                Value<bool> reconcileRequired = const Value.absent(),
+                required int createdAt,
+                required int updatedAt,
+              }) => HostIdentityCompanion.insert(
+                singleton: singleton,
+                restaurantId: restaurantId,
+                hostDeviceId: hostDeviceId,
+                hostEpoch: hostEpoch,
+                epochStartSequence: epochStartSequence,
+                epochStartedAt: epochStartedAt,
+                tlsCertPem: tlsCertPem,
+                tlsCertSha256: tlsCertSha256,
+                signingPublicKey: signingPublicKey,
+                sealPublicKey: sealPublicKey,
+                lanPort: lanPort,
+                lanEnabled: lanEnabled,
+                cloudUrl: cloudUrl,
+                cloudEnrolledAt: cloudEnrolledAt,
+                reconcileRequired: reconcileRequired,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$HostIdentityTable, HostIdentityRow>(table),
+                  BaseReferences<_$AppDatabase, $HostIdentityTable, HostIdentityRow>(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$HostIdentityTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $HostIdentityTable,
+      HostIdentityRow,
+      $$HostIdentityTableFilterComposer,
+      $$HostIdentityTableOrderingComposer,
+      $$HostIdentityTableAnnotationComposer,
+      $$HostIdentityTableCreateCompanionBuilder,
+      $$HostIdentityTableUpdateCompanionBuilder,
+      (
+        HostIdentityRow,
+        BaseReferences<_$AppDatabase, $HostIdentityTable, HostIdentityRow>,
+      ),
+      HostIdentityRow,
+      PrefetchHooks Function()
+    >;
+typedef $$PairedDevicesTableCreateCompanionBuilder =
+    PairedDevicesCompanion Function({
+      required String id,
+      required String role,
+      required String name,
+      Value<String?> platform,
+      Value<String?> appVersion,
+      required String credentialHash,
+      required int createdAt,
+      required String pairedBy,
+      required String pairedByName,
+      Value<int?> lastSeenAt,
+      Value<int?> revokedAt,
+      Value<String?> revokedBy,
+      Value<int> rowid,
+    });
+typedef $$PairedDevicesTableUpdateCompanionBuilder =
+    PairedDevicesCompanion Function({
+      Value<String> id,
+      Value<String> role,
+      Value<String> name,
+      Value<String?> platform,
+      Value<String?> appVersion,
+      Value<String> credentialHash,
+      Value<int> createdAt,
+      Value<String> pairedBy,
+      Value<String> pairedByName,
+      Value<int?> lastSeenAt,
+      Value<int?> revokedAt,
+      Value<String?> revokedBy,
+      Value<int> rowid,
+    });
+
+final class $$PairedDevicesTableReferences extends BaseReferences<_$AppDatabase, $PairedDevicesTable, PairedDeviceRow> {
+  $$PairedDevicesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$StaffSessionsTable, List<StaffSessionRow>> _staffSessionsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.staffSessions,
+        aliasName: 'paired_devices__id__staff_sessions__device_id',
+      );
+
+  $$StaffSessionsTableProcessedTableManager get staffSessionsRefs {
+    final manager = $$StaffSessionsTableTableManager(
+      $_db,
+      $_db.staffSessions,
+    ).filter((f) => f.deviceId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_staffSessionsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$PairedDevicesTableFilterComposer extends Composer<_$AppDatabase, $PairedDevicesTable> {
+  $$PairedDevicesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get appVersion => $composableBuilder(
+    column: $table.appVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get credentialHash => $composableBuilder(
+    column: $table.credentialHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pairedBy => $composableBuilder(
+    column: $table.pairedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pairedByName => $composableBuilder(
+    column: $table.pairedByName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get revokedAt => $composableBuilder(
+    column: $table.revokedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get revokedBy => $composableBuilder(
+    column: $table.revokedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> staffSessionsRefs(
+    Expression<bool> Function($$StaffSessionsTableFilterComposer f) f,
+  ) {
+    final $$StaffSessionsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.staffSessions,
+      getReferencedColumn: (t) => t.deviceId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StaffSessionsTableFilterComposer(
+            $db: $db,
+            $table: $db.staffSessions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$PairedDevicesTableOrderingComposer extends Composer<_$AppDatabase, $PairedDevicesTable> {
+  $$PairedDevicesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get appVersion => $composableBuilder(
+    column: $table.appVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get credentialHash => $composableBuilder(
+    column: $table.credentialHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pairedBy => $composableBuilder(
+    column: $table.pairedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pairedByName => $composableBuilder(
+    column: $table.pairedByName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get revokedAt => $composableBuilder(
+    column: $table.revokedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get revokedBy => $composableBuilder(
+    column: $table.revokedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PairedDevicesTableAnnotationComposer extends Composer<_$AppDatabase, $PairedDevicesTable> {
+  $$PairedDevicesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id => $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get role => $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<String> get name => $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get platform => $composableBuilder(column: $table.platform, builder: (column) => column);
+
+  GeneratedColumn<String> get appVersion => $composableBuilder(
+    column: $table.appVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get credentialHash => $composableBuilder(
+    column: $table.credentialHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get pairedBy => $composableBuilder(column: $table.pairedBy, builder: (column) => column);
+
+  GeneratedColumn<String> get pairedByName => $composableBuilder(
+    column: $table.pairedByName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get revokedAt => $composableBuilder(column: $table.revokedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get revokedBy => $composableBuilder(column: $table.revokedBy, builder: (column) => column);
+
+  Expression<T> staffSessionsRefs<T extends Object>(
+    Expression<T> Function($$StaffSessionsTableAnnotationComposer a) f,
+  ) {
+    final $$StaffSessionsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.staffSessions,
+      getReferencedColumn: (t) => t.deviceId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StaffSessionsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.staffSessions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$PairedDevicesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PairedDevicesTable,
+          PairedDeviceRow,
+          $$PairedDevicesTableFilterComposer,
+          $$PairedDevicesTableOrderingComposer,
+          $$PairedDevicesTableAnnotationComposer,
+          $$PairedDevicesTableCreateCompanionBuilder,
+          $$PairedDevicesTableUpdateCompanionBuilder,
+          (PairedDeviceRow, $$PairedDevicesTableReferences),
+          PairedDeviceRow,
+          PrefetchHooks Function({bool staffSessionsRefs})
+        > {
+  $$PairedDevicesTableTableManager(_$AppDatabase db, $PairedDevicesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$PairedDevicesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$PairedDevicesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$PairedDevicesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> platform = const Value.absent(),
+                Value<String?> appVersion = const Value.absent(),
+                Value<String> credentialHash = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<String> pairedBy = const Value.absent(),
+                Value<String> pairedByName = const Value.absent(),
+                Value<int?> lastSeenAt = const Value.absent(),
+                Value<int?> revokedAt = const Value.absent(),
+                Value<String?> revokedBy = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PairedDevicesCompanion(
+                id: id,
+                role: role,
+                name: name,
+                platform: platform,
+                appVersion: appVersion,
+                credentialHash: credentialHash,
+                createdAt: createdAt,
+                pairedBy: pairedBy,
+                pairedByName: pairedByName,
+                lastSeenAt: lastSeenAt,
+                revokedAt: revokedAt,
+                revokedBy: revokedBy,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String role,
+                required String name,
+                Value<String?> platform = const Value.absent(),
+                Value<String?> appVersion = const Value.absent(),
+                required String credentialHash,
+                required int createdAt,
+                required String pairedBy,
+                required String pairedByName,
+                Value<int?> lastSeenAt = const Value.absent(),
+                Value<int?> revokedAt = const Value.absent(),
+                Value<String?> revokedBy = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PairedDevicesCompanion.insert(
+                id: id,
+                role: role,
+                name: name,
+                platform: platform,
+                appVersion: appVersion,
+                credentialHash: credentialHash,
+                createdAt: createdAt,
+                pairedBy: pairedBy,
+                pairedByName: pairedByName,
+                lastSeenAt: lastSeenAt,
+                revokedAt: revokedAt,
+                revokedBy: revokedBy,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PairedDevicesTable, PairedDeviceRow>(table),
+                  $$PairedDevicesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({staffSessionsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (staffSessionsRefs) db.staffSessions,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (staffSessionsRefs)
+                    await $_getPrefetchedData<PairedDeviceRow, $PairedDevicesTable, StaffSessionRow>(
+                      currentTable: table,
+                      referencedTable: $$PairedDevicesTableReferences._staffSessionsRefsTable(db),
+                      managerFromTypedResult: (p0) => $$PairedDevicesTableReferences(
+                        db,
+                        table,
+                        p0,
+                      ).staffSessionsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.deviceId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PairedDevicesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PairedDevicesTable,
+      PairedDeviceRow,
+      $$PairedDevicesTableFilterComposer,
+      $$PairedDevicesTableOrderingComposer,
+      $$PairedDevicesTableAnnotationComposer,
+      $$PairedDevicesTableCreateCompanionBuilder,
+      $$PairedDevicesTableUpdateCompanionBuilder,
+      (PairedDeviceRow, $$PairedDevicesTableReferences),
+      PairedDeviceRow,
+      PrefetchHooks Function({bool staffSessionsRefs})
+    >;
+typedef $$PairingCodesTableCreateCompanionBuilder =
+    PairingCodesCompanion Function({
+      required String id,
+      required String codeHash,
+      required String role,
+      required String deviceName,
+      required String createdBy,
+      required int createdAt,
+      required int expiresAt,
+      Value<int?> usedAt,
+      Value<String?> usedByDeviceId,
+      Value<int?> cancelledAt,
+      Value<int> rowid,
+    });
+typedef $$PairingCodesTableUpdateCompanionBuilder =
+    PairingCodesCompanion Function({
+      Value<String> id,
+      Value<String> codeHash,
+      Value<String> role,
+      Value<String> deviceName,
+      Value<String> createdBy,
+      Value<int> createdAt,
+      Value<int> expiresAt,
+      Value<int?> usedAt,
+      Value<String?> usedByDeviceId,
+      Value<int?> cancelledAt,
+      Value<int> rowid,
+    });
+
+class $$PairingCodesTableFilterComposer extends Composer<_$AppDatabase, $PairingCodesTable> {
+  $$PairingCodesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get codeHash => $composableBuilder(
+    column: $table.codeHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get usedAt => $composableBuilder(
+    column: $table.usedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get usedByDeviceId => $composableBuilder(
+    column: $table.usedByDeviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cancelledAt => $composableBuilder(
+    column: $table.cancelledAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PairingCodesTableOrderingComposer extends Composer<_$AppDatabase, $PairingCodesTable> {
+  $$PairingCodesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get codeHash => $composableBuilder(
+    column: $table.codeHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get usedAt => $composableBuilder(
+    column: $table.usedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get usedByDeviceId => $composableBuilder(
+    column: $table.usedByDeviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cancelledAt => $composableBuilder(
+    column: $table.cancelledAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PairingCodesTableAnnotationComposer extends Composer<_$AppDatabase, $PairingCodesTable> {
+  $$PairingCodesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id => $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get codeHash => $composableBuilder(column: $table.codeHash, builder: (column) => column);
+
+  GeneratedColumn<String> get role => $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceName => $composableBuilder(
+    column: $table.deviceName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get createdBy => $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get expiresAt => $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<int> get usedAt => $composableBuilder(column: $table.usedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get usedByDeviceId => $composableBuilder(
+    column: $table.usedByDeviceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get cancelledAt => $composableBuilder(
+    column: $table.cancelledAt,
+    builder: (column) => column,
+  );
+}
+
+class $$PairingCodesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PairingCodesTable,
+          PairingCodeRow,
+          $$PairingCodesTableFilterComposer,
+          $$PairingCodesTableOrderingComposer,
+          $$PairingCodesTableAnnotationComposer,
+          $$PairingCodesTableCreateCompanionBuilder,
+          $$PairingCodesTableUpdateCompanionBuilder,
+          (
+            PairingCodeRow,
+            BaseReferences<_$AppDatabase, $PairingCodesTable, PairingCodeRow>,
+          ),
+          PairingCodeRow,
+          PrefetchHooks Function()
+        > {
+  $$PairingCodesTableTableManager(_$AppDatabase db, $PairingCodesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$PairingCodesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$PairingCodesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$PairingCodesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> codeHash = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<String> deviceName = const Value.absent(),
+                Value<String> createdBy = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> expiresAt = const Value.absent(),
+                Value<int?> usedAt = const Value.absent(),
+                Value<String?> usedByDeviceId = const Value.absent(),
+                Value<int?> cancelledAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PairingCodesCompanion(
+                id: id,
+                codeHash: codeHash,
+                role: role,
+                deviceName: deviceName,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+                usedAt: usedAt,
+                usedByDeviceId: usedByDeviceId,
+                cancelledAt: cancelledAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String codeHash,
+                required String role,
+                required String deviceName,
+                required String createdBy,
+                required int createdAt,
+                required int expiresAt,
+                Value<int?> usedAt = const Value.absent(),
+                Value<String?> usedByDeviceId = const Value.absent(),
+                Value<int?> cancelledAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PairingCodesCompanion.insert(
+                id: id,
+                codeHash: codeHash,
+                role: role,
+                deviceName: deviceName,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+                usedAt: usedAt,
+                usedByDeviceId: usedByDeviceId,
+                cancelledAt: cancelledAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PairingCodesTable, PairingCodeRow>(table),
+                  BaseReferences<_$AppDatabase, $PairingCodesTable, PairingCodeRow>(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PairingCodesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PairingCodesTable,
+      PairingCodeRow,
+      $$PairingCodesTableFilterComposer,
+      $$PairingCodesTableOrderingComposer,
+      $$PairingCodesTableAnnotationComposer,
+      $$PairingCodesTableCreateCompanionBuilder,
+      $$PairingCodesTableUpdateCompanionBuilder,
+      (
+        PairingCodeRow,
+        BaseReferences<_$AppDatabase, $PairingCodesTable, PairingCodeRow>,
+      ),
+      PairingCodeRow,
+      PrefetchHooks Function()
+    >;
+typedef $$StaffSessionsTableCreateCompanionBuilder =
+    StaffSessionsCompanion Function({
+      required String id,
+      required String staffId,
+      required String deviceId,
+      required int createdAt,
+      required int expiresAt,
+      Value<int?> lastSeenAt,
+      Value<int?> revokedAt,
+      Value<String?> revokedReason,
+      Value<int> rowid,
+    });
+typedef $$StaffSessionsTableUpdateCompanionBuilder =
+    StaffSessionsCompanion Function({
+      Value<String> id,
+      Value<String> staffId,
+      Value<String> deviceId,
+      Value<int> createdAt,
+      Value<int> expiresAt,
+      Value<int?> lastSeenAt,
+      Value<int?> revokedAt,
+      Value<String?> revokedReason,
+      Value<int> rowid,
+    });
+
+final class $$StaffSessionsTableReferences extends BaseReferences<_$AppDatabase, $StaffSessionsTable, StaffSessionRow> {
+  $$StaffSessionsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $StaffTable _staffIdTable(_$AppDatabase db) => db.staff.createAlias('staff_sessions__staff_id__staff__id');
+
+  $$StaffTableProcessedTableManager get staffId {
+    final $_column = $_itemColumn<String>('staff_id')!;
+
+    final manager = $$StaffTableTableManager(
+      $_db,
+      $_db.staff,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_staffIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PairedDevicesTable _deviceIdTable(_$AppDatabase db) =>
+      db.pairedDevices.createAlias('staff_sessions__device_id__paired_devices__id');
+
+  $$PairedDevicesTableProcessedTableManager get deviceId {
+    final $_column = $_itemColumn<String>('device_id')!;
+
+    final manager = $$PairedDevicesTableTableManager(
+      $_db,
+      $_db.pairedDevices,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_deviceIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$StaffSessionsTableFilterComposer extends Composer<_$AppDatabase, $StaffSessionsTable> {
+  $$StaffSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get revokedAt => $composableBuilder(
+    column: $table.revokedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get revokedReason => $composableBuilder(
+    column: $table.revokedReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$StaffTableFilterComposer get staffId {
+    final $$StaffTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.staffId,
+      referencedTable: $db.staff,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StaffTableFilterComposer(
+            $db: $db,
+            $table: $db.staff,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PairedDevicesTableFilterComposer get deviceId {
+    final $$PairedDevicesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.deviceId,
+      referencedTable: $db.pairedDevices,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PairedDevicesTableFilterComposer(
+            $db: $db,
+            $table: $db.pairedDevices,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$StaffSessionsTableOrderingComposer extends Composer<_$AppDatabase, $StaffSessionsTable> {
+  $$StaffSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get revokedAt => $composableBuilder(
+    column: $table.revokedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get revokedReason => $composableBuilder(
+    column: $table.revokedReason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$StaffTableOrderingComposer get staffId {
+    final $$StaffTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.staffId,
+      referencedTable: $db.staff,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StaffTableOrderingComposer(
+            $db: $db,
+            $table: $db.staff,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PairedDevicesTableOrderingComposer get deviceId {
+    final $$PairedDevicesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.deviceId,
+      referencedTable: $db.pairedDevices,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PairedDevicesTableOrderingComposer(
+            $db: $db,
+            $table: $db.pairedDevices,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$StaffSessionsTableAnnotationComposer extends Composer<_$AppDatabase, $StaffSessionsTable> {
+  $$StaffSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id => $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt => $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get expiresAt => $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<int> get lastSeenAt => $composableBuilder(
+    column: $table.lastSeenAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get revokedAt => $composableBuilder(column: $table.revokedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get revokedReason => $composableBuilder(
+    column: $table.revokedReason,
+    builder: (column) => column,
+  );
+
+  $$StaffTableAnnotationComposer get staffId {
+    final $$StaffTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.staffId,
+      referencedTable: $db.staff,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StaffTableAnnotationComposer(
+            $db: $db,
+            $table: $db.staff,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PairedDevicesTableAnnotationComposer get deviceId {
+    final $$PairedDevicesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.deviceId,
+      referencedTable: $db.pairedDevices,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PairedDevicesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.pairedDevices,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$StaffSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $StaffSessionsTable,
+          StaffSessionRow,
+          $$StaffSessionsTableFilterComposer,
+          $$StaffSessionsTableOrderingComposer,
+          $$StaffSessionsTableAnnotationComposer,
+          $$StaffSessionsTableCreateCompanionBuilder,
+          $$StaffSessionsTableUpdateCompanionBuilder,
+          (StaffSessionRow, $$StaffSessionsTableReferences),
+          StaffSessionRow,
+          PrefetchHooks Function({bool staffId, bool deviceId})
+        > {
+  $$StaffSessionsTableTableManager(_$AppDatabase db, $StaffSessionsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$StaffSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$StaffSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$StaffSessionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> staffId = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> expiresAt = const Value.absent(),
+                Value<int?> lastSeenAt = const Value.absent(),
+                Value<int?> revokedAt = const Value.absent(),
+                Value<String?> revokedReason = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StaffSessionsCompanion(
+                id: id,
+                staffId: staffId,
+                deviceId: deviceId,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+                lastSeenAt: lastSeenAt,
+                revokedAt: revokedAt,
+                revokedReason: revokedReason,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String staffId,
+                required String deviceId,
+                required int createdAt,
+                required int expiresAt,
+                Value<int?> lastSeenAt = const Value.absent(),
+                Value<int?> revokedAt = const Value.absent(),
+                Value<String?> revokedReason = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StaffSessionsCompanion.insert(
+                id: id,
+                staffId: staffId,
+                deviceId: deviceId,
+                createdAt: createdAt,
+                expiresAt: expiresAt,
+                lastSeenAt: lastSeenAt,
+                revokedAt: revokedAt,
+                revokedReason: revokedReason,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$StaffSessionsTable, StaffSessionRow>(table),
+                  $$StaffSessionsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({staffId = false, deviceId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (staffId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.staffId,
+                                referencedTable: $$StaffSessionsTableReferences._staffIdTable(db),
+                                referencedColumn: $$StaffSessionsTableReferences._staffIdTable(db).id,
+                              )
+                              as T;
+                    }
+                    if (deviceId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.deviceId,
+                                referencedTable: $$StaffSessionsTableReferences._deviceIdTable(db),
+                                referencedColumn: $$StaffSessionsTableReferences._deviceIdTable(db).id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$StaffSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $StaffSessionsTable,
+      StaffSessionRow,
+      $$StaffSessionsTableFilterComposer,
+      $$StaffSessionsTableOrderingComposer,
+      $$StaffSessionsTableAnnotationComposer,
+      $$StaffSessionsTableCreateCompanionBuilder,
+      $$StaffSessionsTableUpdateCompanionBuilder,
+      (StaffSessionRow, $$StaffSessionsTableReferences),
+      StaffSessionRow,
+      PrefetchHooks Function({bool staffId, bool deviceId})
+    >;
+typedef $$CommandReceiptsTableCreateCompanionBuilder =
+    CommandReceiptsCompanion Function({
+      required String commandId,
+      required String bodyHash,
+      required String action,
+      required String deviceId,
+      required String staffId,
+      required int hostEpoch,
+      required String state,
+      required String resultJson,
+      required int receivedAt,
+      Value<int> rowid,
+    });
+typedef $$CommandReceiptsTableUpdateCompanionBuilder =
+    CommandReceiptsCompanion Function({
+      Value<String> commandId,
+      Value<String> bodyHash,
+      Value<String> action,
+      Value<String> deviceId,
+      Value<String> staffId,
+      Value<int> hostEpoch,
+      Value<String> state,
+      Value<String> resultJson,
+      Value<int> receivedAt,
+      Value<int> rowid,
+    });
+
+class $$CommandReceiptsTableFilterComposer extends Composer<_$AppDatabase, $CommandReceiptsTable> {
+  $$CommandReceiptsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get commandId => $composableBuilder(
+    column: $table.commandId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bodyHash => $composableBuilder(
+    column: $table.bodyHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get staffId => $composableBuilder(
+    column: $table.staffId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get hostEpoch => $composableBuilder(
+    column: $table.hostEpoch,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get resultJson => $composableBuilder(
+    column: $table.resultJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CommandReceiptsTableOrderingComposer extends Composer<_$AppDatabase, $CommandReceiptsTable> {
+  $$CommandReceiptsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get commandId => $composableBuilder(
+    column: $table.commandId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bodyHash => $composableBuilder(
+    column: $table.bodyHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get staffId => $composableBuilder(
+    column: $table.staffId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get hostEpoch => $composableBuilder(
+    column: $table.hostEpoch,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get resultJson => $composableBuilder(
+    column: $table.resultJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CommandReceiptsTableAnnotationComposer extends Composer<_$AppDatabase, $CommandReceiptsTable> {
+  $$CommandReceiptsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get commandId => $composableBuilder(column: $table.commandId, builder: (column) => column);
+
+  GeneratedColumn<String> get bodyHash => $composableBuilder(column: $table.bodyHash, builder: (column) => column);
+
+  GeneratedColumn<String> get action => $composableBuilder(column: $table.action, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId => $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<String> get staffId => $composableBuilder(column: $table.staffId, builder: (column) => column);
+
+  GeneratedColumn<int> get hostEpoch => $composableBuilder(column: $table.hostEpoch, builder: (column) => column);
+
+  GeneratedColumn<String> get state => $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<String> get resultJson => $composableBuilder(
+    column: $table.resultJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$CommandReceiptsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CommandReceiptsTable,
+          CommandReceiptRow,
+          $$CommandReceiptsTableFilterComposer,
+          $$CommandReceiptsTableOrderingComposer,
+          $$CommandReceiptsTableAnnotationComposer,
+          $$CommandReceiptsTableCreateCompanionBuilder,
+          $$CommandReceiptsTableUpdateCompanionBuilder,
+          (
+            CommandReceiptRow,
+            BaseReferences<_$AppDatabase, $CommandReceiptsTable, CommandReceiptRow>,
+          ),
+          CommandReceiptRow,
+          PrefetchHooks Function()
+        > {
+  $$CommandReceiptsTableTableManager(
+    _$AppDatabase db,
+    $CommandReceiptsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$CommandReceiptsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$CommandReceiptsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$CommandReceiptsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> commandId = const Value.absent(),
+                Value<String> bodyHash = const Value.absent(),
+                Value<String> action = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<String> staffId = const Value.absent(),
+                Value<int> hostEpoch = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<String> resultJson = const Value.absent(),
+                Value<int> receivedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CommandReceiptsCompanion(
+                commandId: commandId,
+                bodyHash: bodyHash,
+                action: action,
+                deviceId: deviceId,
+                staffId: staffId,
+                hostEpoch: hostEpoch,
+                state: state,
+                resultJson: resultJson,
+                receivedAt: receivedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String commandId,
+                required String bodyHash,
+                required String action,
+                required String deviceId,
+                required String staffId,
+                required int hostEpoch,
+                required String state,
+                required String resultJson,
+                required int receivedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => CommandReceiptsCompanion.insert(
+                commandId: commandId,
+                bodyHash: bodyHash,
+                action: action,
+                deviceId: deviceId,
+                staffId: staffId,
+                hostEpoch: hostEpoch,
+                state: state,
+                resultJson: resultJson,
+                receivedAt: receivedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$CommandReceiptsTable, CommandReceiptRow>(table),
+                  BaseReferences<_$AppDatabase, $CommandReceiptsTable, CommandReceiptRow>(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CommandReceiptsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CommandReceiptsTable,
+      CommandReceiptRow,
+      $$CommandReceiptsTableFilterComposer,
+      $$CommandReceiptsTableOrderingComposer,
+      $$CommandReceiptsTableAnnotationComposer,
+      $$CommandReceiptsTableCreateCompanionBuilder,
+      $$CommandReceiptsTableUpdateCompanionBuilder,
+      (
+        CommandReceiptRow,
+        BaseReferences<_$AppDatabase, $CommandReceiptsTable, CommandReceiptRow>,
+      ),
+      CommandReceiptRow,
+      PrefetchHooks Function()
+    >;
+typedef $$HostEventsTableCreateCompanionBuilder =
+    HostEventsCompanion Function({
+      required int hostEpoch,
+      required int sequence,
+      required String eventId,
+      required String type,
+      required String aggregateType,
+      required String aggregateId,
+      required int revision,
+      required int committedAt,
+      Value<String?> businessDate,
+      required String audience,
+      required String eventJson,
+      required String contentHash,
+      Value<int?> cloudAckedAt,
+      Value<int> rowid,
+    });
+typedef $$HostEventsTableUpdateCompanionBuilder =
+    HostEventsCompanion Function({
+      Value<int> hostEpoch,
+      Value<int> sequence,
+      Value<String> eventId,
+      Value<String> type,
+      Value<String> aggregateType,
+      Value<String> aggregateId,
+      Value<int> revision,
+      Value<int> committedAt,
+      Value<String?> businessDate,
+      Value<String> audience,
+      Value<String> eventJson,
+      Value<String> contentHash,
+      Value<int?> cloudAckedAt,
+      Value<int> rowid,
+    });
+
+class $$HostEventsTableFilterComposer extends Composer<_$AppDatabase, $HostEventsTable> {
+  $$HostEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get hostEpoch => $composableBuilder(
+    column: $table.hostEpoch,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sequence => $composableBuilder(
+    column: $table.sequence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get aggregateType => $composableBuilder(
+    column: $table.aggregateType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get aggregateId => $composableBuilder(
+    column: $table.aggregateId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get revision => $composableBuilder(
+    column: $table.revision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get committedAt => $composableBuilder(
+    column: $table.committedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get businessDate => $composableBuilder(
+    column: $table.businessDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get audience => $composableBuilder(
+    column: $table.audience,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventJson => $composableBuilder(
+    column: $table.eventJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cloudAckedAt => $composableBuilder(
+    column: $table.cloudAckedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$HostEventsTableOrderingComposer extends Composer<_$AppDatabase, $HostEventsTable> {
+  $$HostEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get hostEpoch => $composableBuilder(
+    column: $table.hostEpoch,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sequence => $composableBuilder(
+    column: $table.sequence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get aggregateType => $composableBuilder(
+    column: $table.aggregateType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get aggregateId => $composableBuilder(
+    column: $table.aggregateId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get revision => $composableBuilder(
+    column: $table.revision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get committedAt => $composableBuilder(
+    column: $table.committedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get businessDate => $composableBuilder(
+    column: $table.businessDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get audience => $composableBuilder(
+    column: $table.audience,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventJson => $composableBuilder(
+    column: $table.eventJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cloudAckedAt => $composableBuilder(
+    column: $table.cloudAckedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$HostEventsTableAnnotationComposer extends Composer<_$AppDatabase, $HostEventsTable> {
+  $$HostEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get hostEpoch => $composableBuilder(column: $table.hostEpoch, builder: (column) => column);
+
+  GeneratedColumn<int> get sequence => $composableBuilder(column: $table.sequence, builder: (column) => column);
+
+  GeneratedColumn<String> get eventId => $composableBuilder(column: $table.eventId, builder: (column) => column);
+
+  GeneratedColumn<String> get type => $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get aggregateType => $composableBuilder(
+    column: $table.aggregateType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get aggregateId => $composableBuilder(
+    column: $table.aggregateId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get revision => $composableBuilder(column: $table.revision, builder: (column) => column);
+
+  GeneratedColumn<int> get committedAt => $composableBuilder(
+    column: $table.committedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get businessDate => $composableBuilder(
+    column: $table.businessDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get audience => $composableBuilder(column: $table.audience, builder: (column) => column);
+
+  GeneratedColumn<String> get eventJson => $composableBuilder(column: $table.eventJson, builder: (column) => column);
+
+  GeneratedColumn<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get cloudAckedAt => $composableBuilder(
+    column: $table.cloudAckedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$HostEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $HostEventsTable,
+          HostEventRow,
+          $$HostEventsTableFilterComposer,
+          $$HostEventsTableOrderingComposer,
+          $$HostEventsTableAnnotationComposer,
+          $$HostEventsTableCreateCompanionBuilder,
+          $$HostEventsTableUpdateCompanionBuilder,
+          (
+            HostEventRow,
+            BaseReferences<_$AppDatabase, $HostEventsTable, HostEventRow>,
+          ),
+          HostEventRow,
+          PrefetchHooks Function()
+        > {
+  $$HostEventsTableTableManager(_$AppDatabase db, $HostEventsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$HostEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$HostEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$HostEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> hostEpoch = const Value.absent(),
+                Value<int> sequence = const Value.absent(),
+                Value<String> eventId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String> aggregateType = const Value.absent(),
+                Value<String> aggregateId = const Value.absent(),
+                Value<int> revision = const Value.absent(),
+                Value<int> committedAt = const Value.absent(),
+                Value<String?> businessDate = const Value.absent(),
+                Value<String> audience = const Value.absent(),
+                Value<String> eventJson = const Value.absent(),
+                Value<String> contentHash = const Value.absent(),
+                Value<int?> cloudAckedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HostEventsCompanion(
+                hostEpoch: hostEpoch,
+                sequence: sequence,
+                eventId: eventId,
+                type: type,
+                aggregateType: aggregateType,
+                aggregateId: aggregateId,
+                revision: revision,
+                committedAt: committedAt,
+                businessDate: businessDate,
+                audience: audience,
+                eventJson: eventJson,
+                contentHash: contentHash,
+                cloudAckedAt: cloudAckedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int hostEpoch,
+                required int sequence,
+                required String eventId,
+                required String type,
+                required String aggregateType,
+                required String aggregateId,
+                required int revision,
+                required int committedAt,
+                Value<String?> businessDate = const Value.absent(),
+                required String audience,
+                required String eventJson,
+                required String contentHash,
+                Value<int?> cloudAckedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HostEventsCompanion.insert(
+                hostEpoch: hostEpoch,
+                sequence: sequence,
+                eventId: eventId,
+                type: type,
+                aggregateType: aggregateType,
+                aggregateId: aggregateId,
+                revision: revision,
+                committedAt: committedAt,
+                businessDate: businessDate,
+                audience: audience,
+                eventJson: eventJson,
+                contentHash: contentHash,
+                cloudAckedAt: cloudAckedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$HostEventsTable, HostEventRow>(table),
+                  BaseReferences<_$AppDatabase, $HostEventsTable, HostEventRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$HostEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $HostEventsTable,
+      HostEventRow,
+      $$HostEventsTableFilterComposer,
+      $$HostEventsTableOrderingComposer,
+      $$HostEventsTableAnnotationComposer,
+      $$HostEventsTableCreateCompanionBuilder,
+      $$HostEventsTableUpdateCompanionBuilder,
+      (
+        HostEventRow,
+        BaseReferences<_$AppDatabase, $HostEventsTable, HostEventRow>,
+      ),
+      HostEventRow,
+      PrefetchHooks Function()
+    >;
+typedef $$SyncCheckpointsTableCreateCompanionBuilder =
+    SyncCheckpointsCompanion Function({
+      required String name,
+      required int hostEpoch,
+      required int sequence,
+      required int updatedAt,
+      Value<int?> lastSuccessAt,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+typedef $$SyncCheckpointsTableUpdateCompanionBuilder =
+    SyncCheckpointsCompanion Function({
+      Value<String> name,
+      Value<int> hostEpoch,
+      Value<int> sequence,
+      Value<int> updatedAt,
+      Value<int?> lastSuccessAt,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+
+class $$SyncCheckpointsTableFilterComposer extends Composer<_$AppDatabase, $SyncCheckpointsTable> {
+  $$SyncCheckpointsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get hostEpoch => $composableBuilder(
+    column: $table.hostEpoch,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sequence => $composableBuilder(
+    column: $table.sequence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastSuccessAt => $composableBuilder(
+    column: $table.lastSuccessAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncCheckpointsTableOrderingComposer extends Composer<_$AppDatabase, $SyncCheckpointsTable> {
+  $$SyncCheckpointsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get hostEpoch => $composableBuilder(
+    column: $table.hostEpoch,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sequence => $composableBuilder(
+    column: $table.sequence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastSuccessAt => $composableBuilder(
+    column: $table.lastSuccessAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncCheckpointsTableAnnotationComposer extends Composer<_$AppDatabase, $SyncCheckpointsTable> {
+  $$SyncCheckpointsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get name => $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get hostEpoch => $composableBuilder(column: $table.hostEpoch, builder: (column) => column);
+
+  GeneratedColumn<int> get sequence => $composableBuilder(column: $table.sequence, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt => $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get lastSuccessAt => $composableBuilder(
+    column: $table.lastSuccessAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastError => $composableBuilder(column: $table.lastError, builder: (column) => column);
+}
+
+class $$SyncCheckpointsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncCheckpointsTable,
+          SyncCheckpointRow,
+          $$SyncCheckpointsTableFilterComposer,
+          $$SyncCheckpointsTableOrderingComposer,
+          $$SyncCheckpointsTableAnnotationComposer,
+          $$SyncCheckpointsTableCreateCompanionBuilder,
+          $$SyncCheckpointsTableUpdateCompanionBuilder,
+          (
+            SyncCheckpointRow,
+            BaseReferences<_$AppDatabase, $SyncCheckpointsTable, SyncCheckpointRow>,
+          ),
+          SyncCheckpointRow,
+          PrefetchHooks Function()
+        > {
+  $$SyncCheckpointsTableTableManager(
+    _$AppDatabase db,
+    $SyncCheckpointsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$SyncCheckpointsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$SyncCheckpointsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$SyncCheckpointsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> name = const Value.absent(),
+                Value<int> hostEpoch = const Value.absent(),
+                Value<int> sequence = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int?> lastSuccessAt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncCheckpointsCompanion(
+                name: name,
+                hostEpoch: hostEpoch,
+                sequence: sequence,
+                updatedAt: updatedAt,
+                lastSuccessAt: lastSuccessAt,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String name,
+                required int hostEpoch,
+                required int sequence,
+                required int updatedAt,
+                Value<int?> lastSuccessAt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncCheckpointsCompanion.insert(
+                name: name,
+                hostEpoch: hostEpoch,
+                sequence: sequence,
+                updatedAt: updatedAt,
+                lastSuccessAt: lastSuccessAt,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SyncCheckpointsTable, SyncCheckpointRow>(table),
+                  BaseReferences<_$AppDatabase, $SyncCheckpointsTable, SyncCheckpointRow>(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncCheckpointsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncCheckpointsTable,
+      SyncCheckpointRow,
+      $$SyncCheckpointsTableFilterComposer,
+      $$SyncCheckpointsTableOrderingComposer,
+      $$SyncCheckpointsTableAnnotationComposer,
+      $$SyncCheckpointsTableCreateCompanionBuilder,
+      $$SyncCheckpointsTableUpdateCompanionBuilder,
+      (
+        SyncCheckpointRow,
+        BaseReferences<_$AppDatabase, $SyncCheckpointsTable, SyncCheckpointRow>,
+      ),
+      SyncCheckpointRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -41898,4 +49114,13 @@ class $AppDatabaseManager {
   $$AuditEventsTableTableManager get auditEvents => $$AuditEventsTableTableManager(_db, _db.auditEvents);
   $$CompletedOperationsTableTableManager get completedOperations =>
       $$CompletedOperationsTableTableManager(_db, _db.completedOperations);
+  $$HostIdentityTableTableManager get hostIdentity => $$HostIdentityTableTableManager(_db, _db.hostIdentity);
+  $$PairedDevicesTableTableManager get pairedDevices => $$PairedDevicesTableTableManager(_db, _db.pairedDevices);
+  $$PairingCodesTableTableManager get pairingCodes => $$PairingCodesTableTableManager(_db, _db.pairingCodes);
+  $$StaffSessionsTableTableManager get staffSessions => $$StaffSessionsTableTableManager(_db, _db.staffSessions);
+  $$CommandReceiptsTableTableManager get commandReceipts =>
+      $$CommandReceiptsTableTableManager(_db, _db.commandReceipts);
+  $$HostEventsTableTableManager get hostEvents => $$HostEventsTableTableManager(_db, _db.hostEvents);
+  $$SyncCheckpointsTableTableManager get syncCheckpoints =>
+      $$SyncCheckpointsTableTableManager(_db, _db.syncCheckpoints);
 }

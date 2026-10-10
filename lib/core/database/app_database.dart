@@ -48,6 +48,13 @@ part 'app_database.g.dart';
     PrintAttempts,
     AuditEvents,
     CompletedOperations,
+    HostIdentity,
+    PairedDevices,
+    PairingCodes,
+    StaffSessions,
+    CommandReceipts,
+    HostEvents,
+    SyncCheckpoints,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -55,7 +62,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// Bump together with a migration step and a schema dump
   /// (`dart run drift_dev make-migrations`). Never edit an old step.
-  static const int latestSchemaVersion = 3;
+  static const int latestSchemaVersion = 4;
 
   @override
   int get schemaVersion => latestSchemaVersion;
@@ -93,6 +100,24 @@ class AppDatabase extends _$AppDatabase {
       await m.addColumn(schema.staff, schema.staff.passwordHash);
       await m.addColumn(schema.staff, schema.staff.mustChangePassword);
       await m.createIndex(schema.staffEmail);
+    },
+    // v4 (CaféDesk Online): connected mode — host identity, paired devices,
+    // pairing codes, staff sessions, command receipts, event outbox, sync
+    // checkpoints; kitchen tickets get a revision for remote status updates.
+    from3To4: (m, schema) async {
+      await m.addColumn(schema.kitchenTickets, schema.kitchenTickets.revision);
+      await m.createTable(schema.hostIdentity);
+      await m.createTable(schema.pairedDevices);
+      await m.createTable(schema.pairingCodes);
+      await m.createTable(schema.staffSessions);
+      await m.createIndex(schema.staffSessionsStaff);
+      await m.createIndex(schema.staffSessionsDevice);
+      await m.createTable(schema.commandReceipts);
+      await m.createIndex(schema.commandReceiptsReceived);
+      await m.createTable(schema.hostEvents);
+      await m.createIndex(schema.hostEventsEventId);
+      await m.createIndex(schema.hostEventsCloudPending);
+      await m.createTable(schema.syncCheckpoints);
     },
   );
 
