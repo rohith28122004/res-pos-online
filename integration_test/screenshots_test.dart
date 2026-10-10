@@ -64,7 +64,7 @@ void main() {
       await tester.tap(find.text('Open shift').first);
       await settle(tester, 1);
       await tester.enterText(find.byType(TextField).last, '2000');
-      await tester.tap(find.widgetWithText(FilledButton, 'Open shift'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Open shift').last);
       await settle(tester, 2);
     }
 
@@ -88,9 +88,15 @@ void main() {
     await tester.tap(find.textContaining('Pay ₹').first);
     await settle(tester);
     await tester.enterText(find.byType(TextField).first, '200');
+    await tester.scrollUntilVisible(
+      find.text('I have received this payment'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.text('I have received this payment'));
     await settle(tester, 1);
     await shot(tester, '05_checkout');
+    await tester.scrollUntilVisible(find.text('Complete sale'), 300, scrollable: find.byType(Scrollable).last);
     await tester.tap(find.text('Complete sale'));
     await settle(tester, 3);
     await shot(tester, '06_bill_saved');

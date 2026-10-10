@@ -122,15 +122,23 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
 class DemoBanner extends StatelessWidget {
   const DemoBanner({super.key});
+
+  /// Has its own Material (it can sit above a Scaffold) and keeps clear of
+  /// the status bar.
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
+  Widget build(BuildContext context) => Material(
     color: const Color(0xFFFFE08A),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-    child: const Text(
-      'DEMO MODE — sample data only. Leave the demo from Settings to use your real restaurant.',
-      textAlign: TextAlign.center,
-      style: TextStyle(fontWeight: FontWeight.w600),
+    child: SafeArea(
+      bottom: false,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Text(
+          'DEMO MODE — sample data only. Leave the demo from Settings to use your real restaurant.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: AppColors.ink),
+        ),
+      ),
     ),
   );
 }

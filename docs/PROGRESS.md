@@ -75,12 +75,16 @@ Recorded honestly; "not run" means not run.
 
 | Check | Result |
 |---|---|
-| `flutter analyze` | see latest entry in the run log below |
-| Unit / database / reporting / printing tests | see run log |
-| Android release APK | see run log |
-| Windows release bundle | see run log |
-| Integration test on device | not run |
+| `dart format` | clean (page width 120) |
+| `flutter analyze` | no issues |
+| Automated tests (domain, database, reporting, printing, migration, Windows spooler, widget) | 155 passed, 0 failed |
+| Android release APK | built — `dist/CafeDesk-1.0.0+1-android-debug-signed.apk` (debug-signed) |
+| Windows release bundle | built — `dist/CafeDesk-1.0.0+1-windows-x64-unsigned.zip` (unsigned) |
+| Windows bundle launch on dev PC | blocked by Smart App Control (unsigned `flutter_windows.dll`) |
+| Release APK on Android emulator | installed and launched; welcome → demo seeding → lock screen → owner sign-in → shell checked by hand |
+| Scripted integration test on a device | **not completed**: the last emulator run was interrupted, so its result is unknown (see run log) |
 | Physical printers | not run (no hardware) |
+| Manual acceptance checklist | not run (needs café devices and printers) |
 
 ## Run log
 
@@ -107,6 +111,32 @@ Recorded honestly; "not run" means not run.
 - 2026-10-10 — `dart run tool/perf_benchmark.dart` on the dev PC: menu load 24 ms (1,000
   items); order edit 13–53 ms and checkout 35 ms on a 50,000-bill database; dashboard 30 ms
   (day), 452 ms (month, 12,927 bills), 1,646 ms (120 days, 50,000 bills).
+- 2026-10-10 — **Android release APK built** (`scripts/build_android.ps1`): fat APK with
+  arm64-v8a, armeabi-v7a and x86_64, minSdk 24, targetSdk 36, bundled `libsqlite3.so`,
+  label "CaféDesk". **Debug-signed** (no owner key in the repo). Needed
+  `kotlin.incremental=false` (pub cache on D:, project on C:).
+- 2026-10-10 — **Windows release bundle built** (`scripts/build_windows.ps1`, VS Build Tools
+  2022, Developer Mode on): `cafedesk.exe`, `flutter_windows.dll`, `sqlite3.dll`,
+  `dartjni.dll`, `data\`. Zipped **unsigned**. Launching the unzipped bundle on the dev PC:
+  the process starts but **Smart App Control blocks `flutter_windows.dll`** (Code Integrity
+  events 3033/3077/3118). The Windows app therefore cannot run on this PC until the bundle is
+  code-signed with a trusted certificate (or on a PC without Smart App Control). Not a code
+  defect; café PCs with Smart App Control on need a signed build.
+- 2026-10-10 — `dart format` (page width 120) applied; `dart fix` for brace lints; re-run:
+  format 0 changes, analyze no issues, 153 tests passed. Initial local git commit created.
+- 2026-10-10 — **Android emulator** (AVD `cafedesk_phone`, x86_64, headless, WHPX): release
+  APK installed and launched. Checked by hand: welcome screen, demo seeding, lock screen, owner
+  sign-in, shell. **Bug found:** the demo banner sat outside any `Material`, so its text used
+  Flutter's red/underlined fallback style. Fixed (`DemoBanner` is now a `Material` and takes the
+  status-bar inset); `screens_render_test.dart` now fails on any fallback-style text and renders
+  the demo-mode shell at phone and desktop sizes. Gradle raised to `-Xmx4G` after an
+  out-of-memory "Could not start thread" during the APK build.
+- 2026-10-10 — `integration_test/demo_sale_test.dart` on the emulator: got through cashier
+  sign-in, opening a shift, a new takeaway, adding an item, the cart and checkout, then failed
+  because "Complete sale" was below the fold on a phone. Fixed with `scrollUntilVisible`, but the
+  re-run was interrupted before it finished, so **its result is unknown**. The APK in `dist/` was
+  built before the banner fix; rebuild it before handing it out.
+- 2026-10-10 — Final local check: format clean, analyze no issues, **155 tests passed**.
 
 ## Assumptions and decisions
 

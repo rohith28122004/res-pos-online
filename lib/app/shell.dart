@@ -206,10 +206,15 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
       );
     }
+    if (!isDemo) return content;
+    // The banner takes the status-bar inset, so the scaffold below must not
+    // add it again.
     return Column(
       children: [
-        if (isDemo) const DemoBanner(),
-        Expanded(child: content),
+        const DemoBanner(),
+        Expanded(
+          child: MediaQuery.removePadding(context: context, removeTop: true, child: content),
+        ),
       ],
     );
   }

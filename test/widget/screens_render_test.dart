@@ -21,6 +21,7 @@ import 'package:cafedesk/features/settings/presentation/settings_screen.dart';
 import 'package:cafedesk/features/tables/application/table_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -105,6 +106,13 @@ void main() {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
         await tester.pump(const Duration(milliseconds: 50));
       }
+      // Text outside any Material is painted with Flutter's debug fallback
+      // style (red, underlined). That is not an exception, so check for it.
+      final unstyled = [
+        for (final p in tester.renderObjectList<RenderParagraph>(find.byType(RichText)))
+          if (p.text.style?.toString().contains('fallback style') ?? false) p.text.toPlainText(),
+      ];
+      expect(unstyled, isEmpty, reason: 'text without a Material ancestor');
       // Tear down the tree and the providers (cancelling drift stream queries),
       // then let fake time run so drift's stream-close timers and any in-flight
       // fake-zone queries finish before real-async database access.
@@ -140,6 +148,14 @@ void main() {
   };
 
   for (final size in [phone, desktop]) {
+    testWidgets('demo-mode shell renders at ${size.width.toInt()}', (tester) async {
+      await tester.runAsync(seed);
+      addTearDown(tester.view.reset);
+      final dir = Directory.systemTemp.createTempSync('cafedesk_render_demo');
+      rt = AppRuntime.forTesting(AppPaths(dir, dir), AppMode.demo, h.db, h.clock);
+      await pumpScreen(tester, const AppShell(), size, h.owner);
+      await tester.runAsync(() => h.dispose());
+    }, timeout: const Timeout(Duration(minutes: 2)));
     for (final e in screens.entries) {
       testWidgets('${e.key} renders at ${size.width.toInt()}x${size.height.toInt()}', (tester) async {
         await tester.runAsync(seed);

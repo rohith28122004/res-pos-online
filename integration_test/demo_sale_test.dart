@@ -14,13 +14,13 @@ void main() {
   testWidgets('demo café: sign in, sell, pay, see the saved bill', (tester) async {
     ensureTimeZonesLoaded();
     await tester.pumpWidget(const ProviderScope(child: CafeDeskApp()));
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    await settle(tester, 4);
 
     final tryDemo = find.text('Try the demo café');
     if (tryDemo.evaluate().isNotEmpty) {
       await tester.tap(tryDemo);
       // Seeding hashes demo PINs; give it time.
-      await tester.pumpAndSettle(const Duration(seconds: 15));
+      await settle(tester, 60);
     }
     // Leave production mode if the device was already set up as production.
     expect(
@@ -30,37 +30,68 @@ void main() {
     );
 
     await tester.tap(find.text('Demo Cashier'));
-    await tester.pumpAndSettle();
+    await settle(tester, 2);
     for (final d in ['1', '3', '5', '7']) {
       await tester.tap(find.widgetWithText(OutlinedButton, d));
     }
     await tester.tap(find.widgetWithText(FilledButton, 'Unlock'));
-    await tester.pumpAndSettle(const Duration(seconds: 5));
+    await settle(tester, 8);
 
-    // Open a shift if needed.
-    await tester.tap(find.text('Shift').last);
-    await tester.pumpAndSettle();
+    // Open a shift if needed (on phones "Shift" lives under "More").
+    await go(tester, 'Shift');
     final open = find.text('Open shift');
     if (open.evaluate().isNotEmpty) {
       await tester.tap(open.first);
-      await tester.pumpAndSettle();
+      await settle(tester, 1);
       await tester.enterText(find.byType(TextField).last, '1000');
-      await tester.tap(find.widgetWithText(FilledButton, 'Open shift'));
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await tester.tap(find.widgetWithText(FilledButton, 'Open shift').last);
+      await settle(tester, 2);
     }
 
-    await tester.tap(find.text('Sell').last);
-    await tester.pumpAndSettle();
+    await go(tester, 'Sell');
     await tester.tap(find.text('New takeaway'));
-    await tester.pumpAndSettle(const Duration(seconds: 2));
-    await tester.tap(find.text('Filter coffee'));
-    await tester.pumpAndSettle(const Duration(seconds: 1));
-    await tester.tap(find.textContaining('Pay ₹'));
-    await tester.pumpAndSettle();
+    await settle(tester, 3);
+    await tester.tap(find.text('Filter coffee').first);
+    await settle(tester, 2);
+    // Phones show a cart summary bar; open the full cart first.
+    final viewCart = find.text('View cart');
+    if (viewCart.evaluate().isNotEmpty) {
+      await tester.tap(viewCart);
+      await settle(tester, 2);
+    }
+    await tester.tap(find.textContaining('Pay ₹').first);
+    await settle(tester, 2);
+    await tester.scrollUntilVisible(
+      find.text('I have received this payment'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.text('I have received this payment'));
-    await tester.pumpAndSettle();
+    await settle(tester, 1);
+    await tester.scrollUntilVisible(find.text('Complete sale'), 300, scrollable: find.byType(Scrollable).last);
     await tester.tap(find.text('Complete sale'));
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+    await settle(tester, 4);
     expect(find.textContaining('saved'), findsWidgets);
+    expect(find.textContaining('Bill DEMO-'), findsOneWidget);
   });
+}
+
+/// Bounded pumping (a spinner never "settles").
+Future<void> settle(WidgetTester tester, int seconds) async {
+  for (var i = 0; i < seconds * 4; i++) {
+    await tester.pump(const Duration(milliseconds: 250));
+  }
+}
+
+/// Navigates via the rail/bottom bar, or the "More" sheet on phones.
+Future<void> go(WidgetTester tester, String label) async {
+  final direct = find.text(label);
+  if (direct.evaluate().isNotEmpty) {
+    await tester.tap(direct.last);
+  } else {
+    await tester.tap(find.text('More'));
+    await settle(tester, 1);
+    await tester.tap(find.text(label).last);
+  }
+  await settle(tester, 2);
 }
