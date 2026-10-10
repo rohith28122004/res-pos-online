@@ -137,6 +137,13 @@ Recorded honestly; "not run" means not run.
   re-run was interrupted before it finished, so **its result is unknown**. The APK in `dist/` was
   built before the banner fix; rebuild it before handing it out.
 - 2026-10-10 — Final local check: format clean, analyze no issues, **155 tests passed**.
+- 2026-10-10 — **Artifacts rebuilt** from commit `9924635` (includes the banner fix):
+  `dist/CafeDesk-1.0.0+1-android-debug-signed.apk` (65.9 MB, SHA-256
+  `ad7d8f7cf466e7d8ed7daf8991b7ad349fb2b69f0b6271fa11785cc96cd551de`; `apksigner` confirms the
+  signer is "CN=Android Debug", so it is for testing only) and
+  `dist/CafeDesk-1.0.0+1-windows-x64-unsigned.zip` (13.8 MB, SHA-256
+  `7a213a93a23c1d8c6822205ea28009a89e0dcf05b03e737030f04bf9b3edde6d`; unsigned). The rebuilt
+  APK has not been reinstalled on the emulator.
 
 ## Assumptions and decisions
 
