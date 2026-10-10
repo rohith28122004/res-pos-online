@@ -11,7 +11,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:cafedesk/core/database/app_database.dart';
-import 'package:cafedesk/core/security/pin_hasher.dart';
+import 'package:cafedesk/core/security/password_hasher.dart';
 import 'package:cafedesk/core/service_context.dart';
 import 'package:cafedesk/core/time/business_time.dart';
 import 'package:cafedesk/features/bills/domain/payment_method.dart';
@@ -41,8 +41,14 @@ Future<void> main(List<String> args) async {
     'CaféDesk benchmark on ${Platform.operatingSystem} ${Platform.operatingSystemVersion}, '
     '${Platform.numberOfProcessors} logical CPUs',
   );
-  final setup = await SetupService(ctx, hasher: const PinHasher.fastForTests()).completeSetup(
-    const SetupInput(restaurantName: 'Perf Café', ownerName: 'Owner', ownerPin: '4826', receiptPrefix: 'PRF'),
+  final setup = await SetupService(ctx, hasher: const PasswordHasher.fastForTests()).completeSetup(
+    const SetupInput(
+      restaurantName: 'Perf Café',
+      ownerName: 'Owner',
+      ownerEmail: 'owner@perf.test',
+      ownerPassword: 'perf-pass-1',
+      receiptPrefix: 'PRF',
+    ),
   );
   final owner = setup.owner;
   final menu = MenuService(ctx);

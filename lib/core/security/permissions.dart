@@ -59,11 +59,17 @@ const Map<StaffRole, Set<Permission>> rolePermissions = {
 
 /// The signed-in staff member performing an action.
 class Actor {
-  const Actor({required this.staffId, required this.name, required this.role});
+  const Actor({required this.staffId, required this.name, required this.role, this.mustChangePassword = false});
 
   final String staffId;
   final String name;
   final StaffRole role;
+
+  /// Signed in with a password the owner chose; the app asks for a new one
+  /// before anything else.
+  final bool mustChangePassword;
+
+  Actor withPasswordChanged() => Actor(staffId: staffId, name: name, role: role);
 
   bool can(Permission p) => rolePermissions[role]!.contains(p);
 
@@ -99,8 +105,8 @@ class Actor {
   };
 }
 
-/// Proof that an owner entered their PIN for a specific action. Issued only by
-/// AuthService after verifying the PIN; services re-check that [ownerId] is an
+/// Proof that an owner entered their password for a specific action. Issued only
+/// by AuthService after verifying it; services re-check that [ownerId] is an
 /// enabled owner and that the approval is fresh.
 class OwnerApproval {
   const OwnerApproval({required this.ownerId, required this.ownerName, required this.issuedAt});

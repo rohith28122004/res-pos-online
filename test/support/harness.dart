@@ -1,7 +1,7 @@
 import 'package:cafedesk/core/database/app_database.dart';
 import 'package:cafedesk/core/pricing/tax.dart';
+import 'package:cafedesk/core/security/password_hasher.dart';
 import 'package:cafedesk/core/security/permissions.dart';
-import 'package:cafedesk/core/security/pin_hasher.dart';
 import 'package:cafedesk/core/service_context.dart';
 import 'package:cafedesk/core/time/business_time.dart';
 import 'package:cafedesk/features/auth/application/auth_service.dart';
@@ -15,9 +15,11 @@ import 'package:cafedesk/features/setup/application/setup_service.dart';
 import 'package:cafedesk/features/shifts/application/shift_service.dart';
 import 'package:drift/drift.dart';
 
-const ownerPin = '4826';
-const cashierPin = '7391';
-const fastHasher = PinHasher.fastForTests();
+const ownerEmail = 'olivia@test.cafe';
+const ownerPassword = 'owner-pass-1';
+const cashierEmail = 'cara@test.cafe';
+const cashierPassword = 'cashier-pass-1';
+const fastHasher = PasswordHasher.fastForTests();
 
 const gst5Components = [TaxComponentRate(name: 'CGST', rateBps: 250), TaxComponentRate(name: 'SGST', rateBps: 250)];
 
@@ -50,21 +52,36 @@ class Harness {
         restaurantName: 'Test Café',
         address: '1 Main Road',
         ownerName: 'Olivia Owner',
-        ownerPin: ownerPin,
+        ownerEmail: ownerEmail,
+        ownerPassword: ownerPassword,
         receiptPrefix: 'TST',
       ),
     );
     h.owner = result.owner;
-    final cashierId = await h.auth.createStaff(h.owner, name: 'Cara Cashier', role: StaffRole.cashier, pin: cashierPin);
+    final cashierId = await h.auth.createStaff(
+      h.owner,
+      name: 'Cara Cashier',
+      email: cashierEmail,
+      role: StaffRole.cashier,
+      password: cashierPassword,
+      mustChangePassword: false,
+    );
     h.cashier = Actor(staffId: cashierId, name: 'Cara Cashier', role: StaffRole.cashier);
-    final kitchenId = await h.auth.createStaff(h.owner, name: 'Ken Kitchen', role: StaffRole.kitchen, pin: '5927');
+    final kitchenId = await h.auth.createStaff(
+      h.owner,
+      name: 'Ken Kitchen',
+      email: 'ken@test.cafe',
+      role: StaffRole.kitchen,
+      password: 'kitchen-pass-1',
+      mustChangePassword: false,
+    );
     h.kitchen = Actor(staffId: kitchenId, name: 'Ken Kitchen', role: StaffRole.kitchen);
     return h;
   }
 
   Future<OwnerApproval> approval() async {
     final owners = await auth.activeOwners();
-    return auth.approveAsOwner(owners.first.id, ownerPin);
+    return auth.approveAsOwner(owners.first.id, ownerPassword);
   }
 
   Future<String> taxProfile(

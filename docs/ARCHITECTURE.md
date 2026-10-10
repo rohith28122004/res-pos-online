@@ -59,7 +59,7 @@ connection (`AppReady.generation`).
 | `lib/core/money/` | integer money, rounding, allocation, INR formatting/parsing |
 | `lib/core/pricing/` | tax snapshots, pricing engine, refund maths |
 | `lib/core/time/` | clocks, business dates, ranges, time zones (bundled tz data) |
-| `lib/core/security/` | roles, permissions, approvals, Argon2id PIN hashing |
+| `lib/core/security/` | roles, permissions, approvals, Argon2id password hashing, email/password rules |
 | `lib/core/database/` | Drift tables, database, migrations (`app_database.steps.dart`) |
 | `lib/core/printing/` | documents, layout, ESC/POS + raster encoders, queue, transports |
 | `lib/core/backup/` | backup/restore |

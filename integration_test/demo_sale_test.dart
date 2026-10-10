@@ -3,6 +3,8 @@
 // It writes to the app's data folder on that device (demo database only).
 import 'package:cafedesk/app/app.dart';
 import 'package:cafedesk/core/time/business_time.dart';
+import 'package:cafedesk/features/setup/application/demo_seed.dart';
+import 'package:cafedesk/shared/widgets/common.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,7 +21,7 @@ void main() {
     final tryDemo = find.text('Try the demo café');
     if (tryDemo.evaluate().isNotEmpty) {
       await tester.tap(tryDemo);
-      // Seeding hashes demo PINs; give it time.
+      // Seeding hashes the demo passwords; give it time.
       await settle(tester, 60);
     }
     // Leave production mode if the device was already set up as production.
@@ -29,12 +31,11 @@ void main() {
       reason: 'run this test on a device whose CaféDesk is in demo mode or new',
     );
 
-    await tester.tap(find.text('Demo Cashier'));
-    await settle(tester, 2);
-    for (final d in ['1', '3', '5', '7']) {
-      await tester.tap(find.widgetWithText(OutlinedButton, d));
-    }
-    await tester.tap(find.widgetWithText(FilledButton, 'Unlock'));
+    // Tapping a name fills in the email; then the demo password.
+    await tester.tap(find.widgetWithText(ActionChip, 'Demo Cashier'));
+    await settle(tester, 1);
+    await tester.enterText(find.byType(PasswordField), DemoLogins.password);
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await settle(tester, 8);
 
     // Open a shift if needed (on phones "Shift" lives under "More").

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../../app/providers.dart';
 import '../../../app/runtime.dart';
 import '../../../app/theme.dart';
-import '../../../core/security/pin_hasher.dart';
+import '../../../core/security/password_hasher.dart';
 import '../../../core/time/business_time.dart';
 import '../../../shared/widgets/common.dart';
 import '../application/setup_service.dart';
@@ -105,8 +104,9 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
   final _footer = TextEditingController(text: 'Thank you! Visit again.');
   final _prefix = TextEditingController(text: SetupService.generateReceiptPrefix());
   final _ownerName = TextEditingController();
-  final _pin = TextEditingController();
-  final _pin2 = TextEditingController();
+  final _ownerEmail = TextEditingController();
+  final _password = TextEditingController();
+  final _password2 = TextEditingController();
   String _timeZone = 'Asia/Kolkata';
   int _cutoff = 240;
   bool _busy = false;
@@ -114,7 +114,18 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
 
   @override
   void dispose() {
-    for (final c in [_name, _address, _phone, _taxId, _footer, _prefix, _ownerName, _pin, _pin2]) {
+    for (final c in [
+      _name,
+      _address,
+      _phone,
+      _taxId,
+      _footer,
+      _prefix,
+      _ownerName,
+      _ownerEmail,
+      _password,
+      _password2,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -137,7 +148,8 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
           receiptFooter: _footer.text,
           receiptPrefix: _prefix.text,
           ownerName: _ownerName.text,
-          ownerPin: _pin.text,
+          ownerEmail: _ownerEmail.text,
+          ownerPassword: _password.text,
         ),
       ),
     );
@@ -237,12 +249,12 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                       validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
-                    _PinFormField(
-                      controller: _pin,
-                      label: 'Owner PIN (4–8 digits) *',
+                    EmailField(
+                      controller: _ownerEmail,
+                      label: 'Owner email *',
                       validator: (v) {
                         try {
-                          PinHasher.validatePin(v ?? '');
+                          PasswordHasher.normalizeEmail(v ?? '');
                           return null;
                         } on Object catch (e) {
                           return errorText(e);
@@ -250,15 +262,33 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    _PinFormField(
-                      controller: _pin2,
-                      label: 'Repeat PIN *',
-                      validator: (v) => v != _pin.text ? 'PINs do not match' : null,
+                    PasswordField(
+                      controller: _password,
+                      label: 'Owner password *',
+                      helper: 'At least ${PasswordHasher.minPasswordLength} characters',
+                      newPassword: true,
+                      validator: (v) {
+                        try {
+                          PasswordHasher.validatePassword(v ?? '', email: _ownerEmail.text);
+                          return null;
+                        } on Object catch (e) {
+                          return errorText(e);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    PasswordField(
+                      controller: _password2,
+                      label: 'Repeat password *',
+                      newPassword: true,
+                      validator: (v) => v != _password.text ? 'Passwords do not match' : null,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'PINs control who can use the app. They do not encrypt the data: anyone with administrator access to this device '
-                      'could copy the database file.',
+                      'You sign in with this email and password. Only an owner can create accounts for other staff '
+                      '(Staff screen). The email is just a sign-in name on this device: nothing is sent to it and '
+                      'nothing goes online. Passwords control who can use the app; they do not encrypt the data, so '
+                      'anyone with administrator access to this device could copy the database file.',
                       style: t.bodySmall,
                     ),
                     const SizedBox(height: 24),
@@ -278,23 +308,6 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
       ),
     );
   }
-}
-
-class _PinFormField extends StatelessWidget {
-  const _PinFormField({required this.controller, required this.label, required this.validator});
-  final TextEditingController controller;
-  final String label;
-  final FormFieldValidator<String> validator;
-
-  @override
-  Widget build(BuildContext context) => TextFormField(
-    controller: controller,
-    obscureText: true,
-    keyboardType: TextInputType.number,
-    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
-    decoration: InputDecoration(labelText: label),
-    validator: validator,
-  );
 }
 
 class _RecoveryCodeScreen extends ConsumerStatefulWidget {
@@ -324,8 +337,8 @@ class _RecoveryCodeScreenState extends ConsumerState<_RecoveryCodeScreen> {
                 Text('Write down your owner recovery code', style: t.headlineSmall, textAlign: TextAlign.center),
                 const SizedBox(height: 12),
                 const Text(
-                  'If you forget the owner PIN, this code is the only way to reset it on this device. '
-                  'There is no master PIN and no online recovery. Keep it somewhere safe and private. It will not be shown again '
+                  'If you forget the owner password, this code is the only way to reset it on this device. '
+                  'There is no master password and no online recovery. Keep it somewhere safe and private. It will not be shown again '
                   '(an owner can create a new one later in Settings).',
                   textAlign: TextAlign.center,
                 ),

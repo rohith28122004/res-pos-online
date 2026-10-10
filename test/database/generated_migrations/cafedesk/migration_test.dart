@@ -7,7 +7,9 @@ import 'package:cafedesk/features/bills/domain/payment_method.dart';
 import 'package:cafedesk/features/checkout/application/checkout_service.dart';
 import 'package:cafedesk/features/orders/application/order_service.dart';
 import 'package:cafedesk/features/orders/domain/order_models.dart';
+import 'package:cafedesk/core/security/password_hasher.dart';
 import 'package:cafedesk/core/security/permissions.dart';
+import 'package:cafedesk/features/auth/application/auth_service.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -107,6 +109,46 @@ void main() {
     // The old receipt still reproduces from its snapshot.
     final oldReceipt = await BillService(ctx).receiptDocument('bill-1');
     expect(oldReceipt.restaurantName, 'Old Café');
+    await db.close();
+  });
+
+  test('v2 → v3 keeps PIN-era staff and lets the owner get in with the recovery code', () async {
+    const hasher = PasswordHasher.fastForTests();
+    const code = 'ABCD-EFGH-JKLM-NPQR';
+    final codeHash = await hasher.hash(PasswordHasher.normalizeRecoveryCode(code));
+    final schema = await verifier.schemaAt(2);
+    final old = v2.DatabaseAtV2(schema.newConnection());
+    const now = 1759638600000;
+    for (final s in <String>[
+      "INSERT INTO installation (singleton, installation_id, receipt_prefix, is_demo, created_at, created_by_app_version) VALUES (1, 'inst-1', 'OLD', 0, $now, '1.0.0')",
+      "INSERT INTO staff (id, name, role, pin_hash, disabled, failed_attempts, created_at, updated_at) VALUES ('owner-1', 'Owner', 'owner', 'old-pin-hash', 0, 0, $now, $now)",
+      "INSERT INTO staff (id, name, role, pin_hash, disabled, failed_attempts, created_at, updated_at) VALUES ('cashier-1', 'Cashier', 'cashier', 'old-pin-hash', 0, 0, $now, $now)",
+      "INSERT INTO owner_recovery (id, code_hash, created_by, created_at) VALUES ('rec-1', '$codeHash', 'owner-1', $now)",
+    ]) {
+      await old.customStatement(s);
+    }
+    await old.close();
+
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 3);
+    final staff = await db.select(db.staff).get();
+    expect(staff.length, 2);
+    for (final s in staff) {
+      expect(s.email, isNull);
+      expect(s.passwordHash, isNull);
+      expect(s.mustChangePassword, isFalse);
+      expect(s.pinHash, 'old-pin-hash', reason: 'the migration does not rewrite old rows');
+    }
+
+    final ctx = ServiceContext(db: db, clock: FixedClock(DateTime.utc(2025, 10, 5, 6)));
+    final auth = AuthService(ctx, hasher: hasher);
+    await auth.resetOwnerPasswordWithRecoveryCode('owner-1', code, 'new-owner-pass', email: 'owner@old.cafe');
+    final owner = await auth.login('owner@old.cafe', 'new-owner-pass');
+    expect(owner.isOwner, isTrue);
+    // The owner then gives the cashier an email and a starting password.
+    await auth.updateStaff(owner, 'cashier-1', email: 'cashier@old.cafe');
+    await auth.resetPassword(owner, 'cashier-1', 'start-pass-1');
+    expect((await auth.login('cashier@old.cafe', 'start-pass-1')).mustChangePassword, isTrue);
     await db.close();
   });
 }

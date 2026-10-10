@@ -6,7 +6,7 @@ import '../../../core/app_info.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../core/security/permissions.dart';
-import '../../../core/security/pin_hasher.dart';
+import '../../../core/security/password_hasher.dart';
 import '../../../core/service_context.dart';
 import '../../../core/time/business_time.dart';
 
@@ -14,7 +14,8 @@ class SetupInput {
   const SetupInput({
     required this.restaurantName,
     required this.ownerName,
-    required this.ownerPin,
+    required this.ownerEmail,
+    required this.ownerPassword,
     this.address = '',
     this.phone,
     this.taxRegistrationId,
@@ -34,7 +35,8 @@ class SetupInput {
   final int cutoffMinutes;
   final String receiptFooter;
   final String ownerName;
-  final String ownerPin;
+  final String ownerEmail;
+  final String ownerPassword;
 
   /// Shown before every receipt number; generated if empty.
   final String? receiptPrefix;
@@ -44,16 +46,16 @@ class SetupResult {
   const SetupResult({required this.owner, required this.recoveryCode, required this.receiptPrefix});
   final Actor owner;
 
-  /// Shown once. Lets an owner reset their PIN on this installation.
+  /// Shown once. Lets an owner reset their password on this installation.
   final String recoveryCode;
   final String receiptPrefix;
 }
 
 class SetupService {
-  SetupService(this.ctx, {this.hasher = const PinHasher()});
+  SetupService(this.ctx, {this.hasher = const PasswordHasher()});
 
   final ServiceContext ctx;
-  final PinHasher hasher;
+  final PasswordHasher hasher;
 
   AppDatabase get _db => ctx.db;
 
@@ -81,7 +83,8 @@ class SetupService {
     }
     final name = requireText(input.restaurantName, 'Restaurant name');
     final ownerName = requireText(input.ownerName, 'Owner name', max: 60);
-    PinHasher.validatePin(input.ownerPin);
+    final ownerEmail = PasswordHasher.normalizeEmail(input.ownerEmail);
+    PasswordHasher.validatePassword(input.ownerPassword, email: ownerEmail);
     if (!BusinessCalendar.isValidTimeZone(input.timeZone)) {
       throw ValidationException('Unknown time zone "${input.timeZone}"');
     }
@@ -95,9 +98,9 @@ class SetupService {
         ? (isDemo ? 'DEMO' : generateReceiptPrefix())
         : validateReceiptPrefix(input.receiptPrefix!);
 
-    final pinHash = await hasher.hash(input.ownerPin);
-    final recoveryCode = PinHasher.newRecoveryCode();
-    final recoveryHash = await hasher.hash(PinHasher.normalizeRecoveryCode(recoveryCode));
+    final passwordHash = await hasher.hash(input.ownerPassword);
+    final recoveryCode = PasswordHasher.newRecoveryCode();
+    final recoveryHash = await hasher.hash(PasswordHasher.normalizeRecoveryCode(recoveryCode));
     final now = ctx.nowMs();
     final ownerId = ctx.ids.newId();
 
@@ -136,7 +139,8 @@ class SetupService {
               id: ownerId,
               name: ownerName,
               role: StaffRole.owner.name,
-              pinHash: pinHash,
+              email: Value(ownerEmail),
+              passwordHash: Value(passwordHash),
               createdAt: now,
               updatedAt: now,
             ),

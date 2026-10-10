@@ -2148,7 +2148,41 @@ class $StaffTable extends Staff with TableInfo<$StaffTable, StaffRow> {
     aliasedName,
     false,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    clientDefault: () => '',
+  );
+  static const VerificationMeta _emailMeta = const VerificationMeta('email');
+  @override
+  late final GeneratedColumn<String> email = GeneratedColumn<String>(
+    'email',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _passwordHashMeta = const VerificationMeta(
+    'passwordHash',
+  );
+  @override
+  late final GeneratedColumn<String> passwordHash = GeneratedColumn<String>(
+    'password_hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _mustChangePasswordMeta = const VerificationMeta('mustChangePassword');
+  @override
+  late final GeneratedColumn<bool> mustChangePassword = GeneratedColumn<bool>(
+    'must_change_password',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("must_change_password" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
   );
   static const VerificationMeta _disabledMeta = const VerificationMeta(
     'disabled',
@@ -2216,6 +2250,9 @@ class $StaffTable extends Staff with TableInfo<$StaffTable, StaffRow> {
     name,
     role,
     pinHash,
+    email,
+    passwordHash,
+    mustChangePassword,
     disabled,
     failedAttempts,
     lockedUntil,
@@ -2260,8 +2297,30 @@ class $StaffTable extends Staff with TableInfo<$StaffTable, StaffRow> {
         _pinHashMeta,
         pinHash.isAcceptableOrUnknown(data['pin_hash']!, _pinHashMeta),
       );
-    } else if (isInserting) {
-      context.missing(_pinHashMeta);
+    }
+    if (data.containsKey('email')) {
+      context.handle(
+        _emailMeta,
+        email.isAcceptableOrUnknown(data['email']!, _emailMeta),
+      );
+    }
+    if (data.containsKey('password_hash')) {
+      context.handle(
+        _passwordHashMeta,
+        passwordHash.isAcceptableOrUnknown(
+          data['password_hash']!,
+          _passwordHashMeta,
+        ),
+      );
+    }
+    if (data.containsKey('must_change_password')) {
+      context.handle(
+        _mustChangePasswordMeta,
+        mustChangePassword.isAcceptableOrUnknown(
+          data['must_change_password']!,
+          _mustChangePasswordMeta,
+        ),
+      );
     }
     if (data.containsKey('disabled')) {
       context.handle(
@@ -2328,6 +2387,18 @@ class $StaffTable extends Staff with TableInfo<$StaffTable, StaffRow> {
         DriftSqlType.string,
         data['${effectivePrefix}pin_hash'],
       )!,
+      email: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}email'],
+      ),
+      passwordHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}password_hash'],
+      ),
+      mustChangePassword: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}must_change_password'],
+      )!,
       disabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}disabled'],
@@ -2361,7 +2432,21 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
   final String id;
   final String name;
   final String role;
+
+  /// Schema 1–2 signed in with PINs. Unused since v3 (email + password); empty
+  /// for new accounts and cleared when a password is set.
   final String pinHash;
+
+  /// Trimmed, lower-case sign-in email. Null only on accounts from before v3
+  /// until the owner gives them one.
+  final String? email;
+
+  /// Argon2id hash of the password. Null = cannot sign in yet.
+  final String? passwordHash;
+
+  /// Set when the owner chose the password; the person must pick their own
+  /// at the next sign-in.
+  final bool mustChangePassword;
   final bool disabled;
   final int failedAttempts;
   final int? lockedUntil;
@@ -2372,6 +2457,9 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
     required this.name,
     required this.role,
     required this.pinHash,
+    this.email,
+    this.passwordHash,
+    required this.mustChangePassword,
     required this.disabled,
     required this.failedAttempts,
     this.lockedUntil,
@@ -2385,6 +2473,13 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
     map['name'] = Variable<String>(name);
     map['role'] = Variable<String>(role);
     map['pin_hash'] = Variable<String>(pinHash);
+    if (!nullToAbsent || email != null) {
+      map['email'] = Variable<String>(email);
+    }
+    if (!nullToAbsent || passwordHash != null) {
+      map['password_hash'] = Variable<String>(passwordHash);
+    }
+    map['must_change_password'] = Variable<bool>(mustChangePassword);
     map['disabled'] = Variable<bool>(disabled);
     map['failed_attempts'] = Variable<int>(failedAttempts);
     if (!nullToAbsent || lockedUntil != null) {
@@ -2401,6 +2496,9 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
       name: Value(name),
       role: Value(role),
       pinHash: Value(pinHash),
+      email: email == null && nullToAbsent ? const Value.absent() : Value(email),
+      passwordHash: passwordHash == null && nullToAbsent ? const Value.absent() : Value(passwordHash),
+      mustChangePassword: Value(mustChangePassword),
       disabled: Value(disabled),
       failedAttempts: Value(failedAttempts),
       lockedUntil: lockedUntil == null && nullToAbsent ? const Value.absent() : Value(lockedUntil),
@@ -2419,6 +2517,9 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
       name: serializer.fromJson<String>(json['name']),
       role: serializer.fromJson<String>(json['role']),
       pinHash: serializer.fromJson<String>(json['pinHash']),
+      email: serializer.fromJson<String?>(json['email']),
+      passwordHash: serializer.fromJson<String?>(json['passwordHash']),
+      mustChangePassword: serializer.fromJson<bool>(json['mustChangePassword']),
       disabled: serializer.fromJson<bool>(json['disabled']),
       failedAttempts: serializer.fromJson<int>(json['failedAttempts']),
       lockedUntil: serializer.fromJson<int?>(json['lockedUntil']),
@@ -2434,6 +2535,9 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
       'name': serializer.toJson<String>(name),
       'role': serializer.toJson<String>(role),
       'pinHash': serializer.toJson<String>(pinHash),
+      'email': serializer.toJson<String?>(email),
+      'passwordHash': serializer.toJson<String?>(passwordHash),
+      'mustChangePassword': serializer.toJson<bool>(mustChangePassword),
       'disabled': serializer.toJson<bool>(disabled),
       'failedAttempts': serializer.toJson<int>(failedAttempts),
       'lockedUntil': serializer.toJson<int?>(lockedUntil),
@@ -2447,6 +2551,9 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
     String? name,
     String? role,
     String? pinHash,
+    Value<String?> email = const Value.absent(),
+    Value<String?> passwordHash = const Value.absent(),
+    bool? mustChangePassword,
     bool? disabled,
     int? failedAttempts,
     Value<int?> lockedUntil = const Value.absent(),
@@ -2457,6 +2564,9 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
     name: name ?? this.name,
     role: role ?? this.role,
     pinHash: pinHash ?? this.pinHash,
+    email: email.present ? email.value : this.email,
+    passwordHash: passwordHash.present ? passwordHash.value : this.passwordHash,
+    mustChangePassword: mustChangePassword ?? this.mustChangePassword,
     disabled: disabled ?? this.disabled,
     failedAttempts: failedAttempts ?? this.failedAttempts,
     lockedUntil: lockedUntil.present ? lockedUntil.value : this.lockedUntil,
@@ -2469,6 +2579,9 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
       name: data.name.present ? data.name.value : this.name,
       role: data.role.present ? data.role.value : this.role,
       pinHash: data.pinHash.present ? data.pinHash.value : this.pinHash,
+      email: data.email.present ? data.email.value : this.email,
+      passwordHash: data.passwordHash.present ? data.passwordHash.value : this.passwordHash,
+      mustChangePassword: data.mustChangePassword.present ? data.mustChangePassword.value : this.mustChangePassword,
       disabled: data.disabled.present ? data.disabled.value : this.disabled,
       failedAttempts: data.failedAttempts.present ? data.failedAttempts.value : this.failedAttempts,
       lockedUntil: data.lockedUntil.present ? data.lockedUntil.value : this.lockedUntil,
@@ -2484,6 +2597,9 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
           ..write('name: $name, ')
           ..write('role: $role, ')
           ..write('pinHash: $pinHash, ')
+          ..write('email: $email, ')
+          ..write('passwordHash: $passwordHash, ')
+          ..write('mustChangePassword: $mustChangePassword, ')
           ..write('disabled: $disabled, ')
           ..write('failedAttempts: $failedAttempts, ')
           ..write('lockedUntil: $lockedUntil, ')
@@ -2499,6 +2615,9 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
     name,
     role,
     pinHash,
+    email,
+    passwordHash,
+    mustChangePassword,
     disabled,
     failedAttempts,
     lockedUntil,
@@ -2513,6 +2632,9 @@ class StaffRow extends DataClass implements Insertable<StaffRow> {
           other.name == this.name &&
           other.role == this.role &&
           other.pinHash == this.pinHash &&
+          other.email == this.email &&
+          other.passwordHash == this.passwordHash &&
+          other.mustChangePassword == this.mustChangePassword &&
           other.disabled == this.disabled &&
           other.failedAttempts == this.failedAttempts &&
           other.lockedUntil == this.lockedUntil &&
@@ -2525,6 +2647,9 @@ class StaffCompanion extends UpdateCompanion<StaffRow> {
   final Value<String> name;
   final Value<String> role;
   final Value<String> pinHash;
+  final Value<String?> email;
+  final Value<String?> passwordHash;
+  final Value<bool> mustChangePassword;
   final Value<bool> disabled;
   final Value<int> failedAttempts;
   final Value<int?> lockedUntil;
@@ -2536,6 +2661,9 @@ class StaffCompanion extends UpdateCompanion<StaffRow> {
     this.name = const Value.absent(),
     this.role = const Value.absent(),
     this.pinHash = const Value.absent(),
+    this.email = const Value.absent(),
+    this.passwordHash = const Value.absent(),
+    this.mustChangePassword = const Value.absent(),
     this.disabled = const Value.absent(),
     this.failedAttempts = const Value.absent(),
     this.lockedUntil = const Value.absent(),
@@ -2547,7 +2675,10 @@ class StaffCompanion extends UpdateCompanion<StaffRow> {
     required String id,
     required String name,
     required String role,
-    required String pinHash,
+    this.pinHash = const Value.absent(),
+    this.email = const Value.absent(),
+    this.passwordHash = const Value.absent(),
+    this.mustChangePassword = const Value.absent(),
     this.disabled = const Value.absent(),
     this.failedAttempts = const Value.absent(),
     this.lockedUntil = const Value.absent(),
@@ -2557,7 +2688,6 @@ class StaffCompanion extends UpdateCompanion<StaffRow> {
   }) : id = Value(id),
        name = Value(name),
        role = Value(role),
-       pinHash = Value(pinHash),
        createdAt = Value(createdAt),
        updatedAt = Value(updatedAt);
   static Insertable<StaffRow> custom({
@@ -2565,6 +2695,9 @@ class StaffCompanion extends UpdateCompanion<StaffRow> {
     Expression<String>? name,
     Expression<String>? role,
     Expression<String>? pinHash,
+    Expression<String>? email,
+    Expression<String>? passwordHash,
+    Expression<bool>? mustChangePassword,
     Expression<bool>? disabled,
     Expression<int>? failedAttempts,
     Expression<int>? lockedUntil,
@@ -2577,6 +2710,9 @@ class StaffCompanion extends UpdateCompanion<StaffRow> {
       if (name != null) 'name': name,
       if (role != null) 'role': role,
       if (pinHash != null) 'pin_hash': pinHash,
+      if (email != null) 'email': email,
+      if (passwordHash != null) 'password_hash': passwordHash,
+      if (mustChangePassword != null) 'must_change_password': mustChangePassword,
       if (disabled != null) 'disabled': disabled,
       if (failedAttempts != null) 'failed_attempts': failedAttempts,
       if (lockedUntil != null) 'locked_until': lockedUntil,
@@ -2591,6 +2727,9 @@ class StaffCompanion extends UpdateCompanion<StaffRow> {
     Value<String>? name,
     Value<String>? role,
     Value<String>? pinHash,
+    Value<String?>? email,
+    Value<String?>? passwordHash,
+    Value<bool>? mustChangePassword,
     Value<bool>? disabled,
     Value<int>? failedAttempts,
     Value<int?>? lockedUntil,
@@ -2603,6 +2742,9 @@ class StaffCompanion extends UpdateCompanion<StaffRow> {
       name: name ?? this.name,
       role: role ?? this.role,
       pinHash: pinHash ?? this.pinHash,
+      email: email ?? this.email,
+      passwordHash: passwordHash ?? this.passwordHash,
+      mustChangePassword: mustChangePassword ?? this.mustChangePassword,
       disabled: disabled ?? this.disabled,
       failedAttempts: failedAttempts ?? this.failedAttempts,
       lockedUntil: lockedUntil ?? this.lockedUntil,
@@ -2626,6 +2768,15 @@ class StaffCompanion extends UpdateCompanion<StaffRow> {
     }
     if (pinHash.present) {
       map['pin_hash'] = Variable<String>(pinHash.value);
+    }
+    if (email.present) {
+      map['email'] = Variable<String>(email.value);
+    }
+    if (passwordHash.present) {
+      map['password_hash'] = Variable<String>(passwordHash.value);
+    }
+    if (mustChangePassword.present) {
+      map['must_change_password'] = Variable<bool>(mustChangePassword.value);
     }
     if (disabled.present) {
       map['disabled'] = Variable<bool>(disabled.value);
@@ -2655,6 +2806,9 @@ class StaffCompanion extends UpdateCompanion<StaffRow> {
           ..write('name: $name, ')
           ..write('role: $role, ')
           ..write('pinHash: $pinHash, ')
+          ..write('email: $email, ')
+          ..write('passwordHash: $passwordHash, ')
+          ..write('mustChangePassword: $mustChangePassword, ')
           ..write('disabled: $disabled, ')
           ..write('failedAttempts: $failedAttempts, ')
           ..write('lockedUntil: $lockedUntil, ')
@@ -23202,6 +23356,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PrintAttemptsTable printAttempts = $PrintAttemptsTable(this);
   late final $AuditEventsTable auditEvents = $AuditEventsTable(this);
   late final $CompletedOperationsTable completedOperations = $CompletedOperationsTable(this);
+  late final Index staffEmail = Index(
+    'staff_email',
+    'CREATE UNIQUE INDEX staff_email ON staff (email)',
+  );
   late final Index menuItemsCategory = Index(
     'menu_items_category',
     'CREATE INDEX menu_items_category ON menu_items (category_id)',
@@ -23400,6 +23558,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     printAttempts,
     auditEvents,
     completedOperations,
+    staffEmail,
     menuItemsCategory,
     itemVariantsItem,
     itemModifiersItem,
@@ -24458,7 +24617,10 @@ typedef $$StaffTableCreateCompanionBuilder =
       required String id,
       required String name,
       required String role,
-      required String pinHash,
+      Value<String> pinHash,
+      Value<String?> email,
+      Value<String?> passwordHash,
+      Value<bool> mustChangePassword,
       Value<bool> disabled,
       Value<int> failedAttempts,
       Value<int?> lockedUntil,
@@ -24472,6 +24634,9 @@ typedef $$StaffTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> role,
       Value<String> pinHash,
+      Value<String?> email,
+      Value<String?> passwordHash,
+      Value<bool> mustChangePassword,
       Value<bool> disabled,
       Value<int> failedAttempts,
       Value<int?> lockedUntil,
@@ -24547,6 +24712,21 @@ class $$StaffTableFilterComposer extends Composer<_$AppDatabase, $StaffTable> {
 
   ColumnFilters<String> get pinHash => $composableBuilder(
     column: $table.pinHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get mustChangePassword => $composableBuilder(
+    column: $table.mustChangePassword,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -24652,6 +24832,21 @@ class $$StaffTableOrderingComposer extends Composer<_$AppDatabase, $StaffTable> 
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get mustChangePassword => $composableBuilder(
+    column: $table.mustChangePassword,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get disabled => $composableBuilder(
     column: $table.disabled,
     builder: (column) => ColumnOrderings(column),
@@ -24693,6 +24888,18 @@ class $$StaffTableAnnotationComposer extends Composer<_$AppDatabase, $StaffTable
   GeneratedColumn<String> get role => $composableBuilder(column: $table.role, builder: (column) => column);
 
   GeneratedColumn<String> get pinHash => $composableBuilder(column: $table.pinHash, builder: (column) => column);
+
+  GeneratedColumn<String> get email => $composableBuilder(column: $table.email, builder: (column) => column);
+
+  GeneratedColumn<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get mustChangePassword => $composableBuilder(
+    column: $table.mustChangePassword,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<bool> get disabled => $composableBuilder(column: $table.disabled, builder: (column) => column);
 
@@ -24788,6 +24995,9 @@ class $$StaffTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> role = const Value.absent(),
                 Value<String> pinHash = const Value.absent(),
+                Value<String?> email = const Value.absent(),
+                Value<String?> passwordHash = const Value.absent(),
+                Value<bool> mustChangePassword = const Value.absent(),
                 Value<bool> disabled = const Value.absent(),
                 Value<int> failedAttempts = const Value.absent(),
                 Value<int?> lockedUntil = const Value.absent(),
@@ -24799,6 +25009,9 @@ class $$StaffTableTableManager
                 name: name,
                 role: role,
                 pinHash: pinHash,
+                email: email,
+                passwordHash: passwordHash,
+                mustChangePassword: mustChangePassword,
                 disabled: disabled,
                 failedAttempts: failedAttempts,
                 lockedUntil: lockedUntil,
@@ -24811,7 +25024,10 @@ class $$StaffTableTableManager
                 required String id,
                 required String name,
                 required String role,
-                required String pinHash,
+                Value<String> pinHash = const Value.absent(),
+                Value<String?> email = const Value.absent(),
+                Value<String?> passwordHash = const Value.absent(),
+                Value<bool> mustChangePassword = const Value.absent(),
                 Value<bool> disabled = const Value.absent(),
                 Value<int> failedAttempts = const Value.absent(),
                 Value<int?> lockedUntil = const Value.absent(),
@@ -24823,6 +25039,9 @@ class $$StaffTableTableManager
                 name: name,
                 role: role,
                 pinHash: pinHash,
+                email: email,
+                passwordHash: passwordHash,
+                mustChangePassword: mustChangePassword,
                 disabled: disabled,
                 failedAttempts: failedAttempts,
                 lockedUntil: lockedUntil,

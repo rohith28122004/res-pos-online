@@ -11,7 +11,7 @@ is created) · booleans INTEGER 0/1 · `PRAGMA foreign_keys = ON` on every conne
 | `installation` | single row: installation id, receipt prefix, demo flag, created-by version | prefix changes only via restore option |
 | `sequences` | `receipt`, `refund`, `order`, `kot` counters, allocated inside the using transaction | increment only |
 | `restaurant_settings` | single row: identity, currency, time zone, cutoff, receipt text, limits, charges, rounding, lock timeout, print and backup options, `version` | audited updates |
-| `staff` | name, role, Argon2id PIN hash, disabled flag, failed attempts, `locked_until` | audited updates |
+| `staff` | name, role, sign-in `email` (lower-case, unique), Argon2id `password_hash`, `must_change_password`, disabled flag, failed attempts, `locked_until`; legacy `pin_hash` (schema 1–2, unused since v3, cleared when a password is set) | audited updates |
 | `owner_recovery` | hashed one-time recovery codes | `used_at` set once |
 | `tax_profiles` | mode, rate, component split, archived, `version` | audited updates; lines keep snapshots |
 | `categories`, `menu_items`, `item_variants`, `item_modifiers` | current menu; archived instead of deleted | audited updates |
@@ -59,5 +59,5 @@ newer app version is refused instead of downgraded. To add v3: change tables, bu
 
 ## What is never stored
 
-Card numbers, UPI ids/credentials, plaintext PINs or recovery codes, customer phone numbers
-(no field exists). Logs and audit details never include PINs or backup contents.
+Card numbers, UPI ids/credentials, plaintext passwords or recovery codes, customer phone numbers
+(no field exists). Logs and audit details never include passwords or backup contents.

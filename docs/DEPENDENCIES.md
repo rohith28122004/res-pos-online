@@ -15,7 +15,7 @@ supports both Android and Windows unless noted. No package talks to the internet
 | timezone | bundled IANA time-zone database (offline) for business days | ✓ | ✓ | BSD-2-Clause |
 | archive | ZIP for backups | ✓ | ✓ | MIT |
 | crypto | SHA-256 backup checksums | ✓ | ✓ | BSD-3-Clause |
-| hashlib | Argon2id PIN hashing (maintained, pure Dart) | ✓ | ✓ | BSD-3-Clause |
+| hashlib | Argon2id password hashing (maintained, pure Dart) | ✓ | ✓ | BSD-3-Clause |
 | file_picker | open/save dialogs for CSV and backup files | ✓ (SAF) | ✓ | MIT |
 | fl_chart | dashboard bar charts | ✓ | ✓ | MIT |
 | ffi | native strings/allocation for the Windows spooler bindings | n/a | ✓ | BSD-3-Clause |

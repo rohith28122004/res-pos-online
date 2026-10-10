@@ -320,7 +320,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       await services.backupService.discardInspection(insp);
       return;
     }
-    final approval = await requestOwnerApproval(context, ref, purpose: 'Enter the owner PIN to restore this backup.');
+    final approval = await requestOwnerApproval(
+      context,
+      ref,
+      purpose: 'Enter the owner password to restore this backup.',
+    );
     if (approval == null || !mounted) {
       await services.backupService.discardInspection(insp);
       return;

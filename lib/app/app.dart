@@ -40,6 +40,7 @@ class _Authenticated extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final actor = ref.watch(sessionProvider);
     if (actor == null) return const LockScreen();
+    if (actor.mustChangePassword) return InactivityGuard(child: PasswordChangeRequiredScreen(actor: actor));
     return InactivityGuard(child: AppShell(key: ValueKey(actor.staffId)));
   }
 }

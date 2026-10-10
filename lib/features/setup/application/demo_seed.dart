@@ -1,6 +1,9 @@
+import 'package:drift/drift.dart';
+
+import '../../../core/database/app_database.dart';
 import '../../../core/pricing/tax.dart';
+import '../../../core/security/password_hasher.dart';
 import '../../../core/security/permissions.dart';
-import '../../../core/security/pin_hasher.dart';
 import '../../../core/service_context.dart';
 import '../../auth/application/auth_service.dart';
 import '../../menu/application/menu_service.dart';
@@ -8,19 +11,27 @@ import '../../settings/application/settings_service.dart';
 import '../../tables/application/table_service.dart';
 import 'setup_service.dart';
 
-/// Demo-only PINs. They exist only inside the separate demo database and are
-/// shown on the demo lock screen; production installs have no default PINs.
-abstract final class DemoPins {
-  static const owner = '2580';
-  static const cashier = '1357';
-  static const kitchen = '9024';
+/// Demo-only sign-ins. They exist only inside the separate demo database and
+/// are shown on the demo lock screen; production installs have no default
+/// accounts.
+abstract final class DemoLogins {
+  static const ownerEmail = 'owner@demo.test';
+  static const cashierEmail = 'cashier@demo.test';
+  static const kitchenEmail = 'kitchen@demo.test';
+  static const password = 'demo1234';
+
+  static String emailFor(StaffRole role) => switch (role) {
+    StaffRole.owner => ownerEmail,
+    StaffRole.cashier => cashierEmail,
+    StaffRole.kitchen => kitchenEmail,
+  };
 }
 
 /// Seeds the separate demo database (cafedesk_demo.sqlite) with a sample café.
 class DemoSeeder {
-  DemoSeeder(this.ctx, {this.hasher = const PinHasher()});
+  DemoSeeder(this.ctx, {this.hasher = const PasswordHasher()});
   final ServiceContext ctx;
-  final PinHasher hasher;
+  final PasswordHasher hasher;
 
   Future<void> seed() async {
     final setup = await SetupService(ctx, hasher: hasher).completeSetup(
@@ -28,15 +39,24 @@ class DemoSeeder {
         restaurantName: 'Demo Café',
         address: '12 Sample Street\nChennai',
         ownerName: 'Demo Owner',
-        ownerPin: DemoPins.owner,
+        ownerEmail: DemoLogins.ownerEmail,
+        ownerPassword: DemoLogins.password,
         receiptFooter: 'DEMO — not a real bill',
       ),
       isDemo: true,
     );
     final owner = setup.owner;
     final auth = AuthService(ctx, hasher: hasher);
-    await auth.createStaff(owner, name: 'Demo Cashier', role: StaffRole.cashier, pin: DemoPins.cashier);
-    await auth.createStaff(owner, name: 'Demo Kitchen', role: StaffRole.kitchen, pin: DemoPins.kitchen);
+    for (final (name, role) in [('Demo Cashier', StaffRole.cashier), ('Demo Kitchen', StaffRole.kitchen)]) {
+      await auth.createStaff(
+        owner,
+        name: name,
+        role: role,
+        email: DemoLogins.emailFor(role),
+        password: DemoLogins.password,
+        mustChangePassword: false,
+      );
+    }
 
     final settings = SettingsService(ctx);
     final gst = await settings.createTaxProfile(
@@ -146,5 +166,27 @@ class DemoSeeder {
         VariantInput(name: 'Salted', price: 7000),
       ],
     );
+  }
+
+  /// Demo databases seeded before email sign-in (schema 2) have PIN-only
+  /// staff. Gives each demo account without a password its demo email and
+  /// password so the credentials on the demo lock screen work. Demo only.
+  Future<void> upgradeLogins() async {
+    final db = ctx.db;
+    final rows = await (db.select(db.staff)..where((s) => s.passwordHash.isNull())).get();
+    final used = <String>{};
+    for (final row in rows) {
+      final email = DemoLogins.emailFor(StaffRole.parse(row.role));
+      if (!used.add(email)) continue;
+      final taken = await (db.select(db.staff)..where((s) => s.email.equals(email))).getSingleOrNull();
+      if (taken != null) continue;
+      await (db.update(db.staff)..where((s) => s.id.equals(row.id))).write(
+        StaffCompanion(
+          email: Value(email),
+          passwordHash: Value(await hasher.hash(DemoLogins.password)),
+          pinHash: const Value(''),
+        ),
+      );
+    }
   }
 }

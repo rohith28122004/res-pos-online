@@ -108,7 +108,7 @@ class SettingsScreen extends ConsumerWidget {
         _tile(
           Icons.info_outline,
           'About and data',
-          'Where data is stored, what PINs protect',
+          'Where data is stored, what passwords protect',
           () => open(const AboutScreen()),
         ),
       ],
@@ -433,7 +433,7 @@ class _PricingFormState extends ConsumerState<_PricingForm> {
               decoration: const InputDecoration(
                 labelText: 'Cashier discount limit (%)',
                 suffixText: '%',
-                helperText: 'Bigger discounts need an owner PIN',
+                helperText: 'Bigger discounts need owner approval',
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
@@ -712,9 +712,9 @@ class AboutScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           const SectionCard(
-            title: 'What PINs protect',
+            title: 'What passwords protect',
             child: Text(
-              'PINs control who can use CaféDesk on this device. They are stored as salted hashes, not in plain text. '
+              'Email + password accounts control who can use CaféDesk on this device; only an owner creates them. Passwords are stored as salted Argon2id hashes, not in plain text, and the email is only a sign-in name (nothing is sent to it). '
               'They do not encrypt the database or backups: someone with administrator access to the device or a backup file '
               'can read the data. Backup files are not encrypted — store copies safely.',
             ),

@@ -7,6 +7,7 @@ import 'package:cafedesk/app/theme.dart';
 import 'package:cafedesk/core/pricing/tax.dart';
 import 'package:cafedesk/core/security/permissions.dart';
 import 'package:cafedesk/features/audit/presentation/audit_screen.dart';
+import 'package:cafedesk/features/auth/presentation/lock_screen.dart';
 import 'package:cafedesk/features/bills/domain/payment_method.dart';
 import 'package:cafedesk/features/bills/presentation/bill_detail_screen.dart';
 import 'package:cafedesk/features/checkout/presentation/checkout_screen.dart';
@@ -113,6 +114,14 @@ void main() {
           if (p.text.style?.toString().contains('fallback style') ?? false) p.text.toPlainText(),
       ];
       expect(unstyled, isEmpty, reason: 'text without a Material ancestor');
+      // Chips sit on light backgrounds: their labels must be dark enough to read.
+      final faint = [
+        for (final p in tester.renderObjectList<RenderParagraph>(
+          find.descendant(of: find.byType(RawChip), matching: find.byType(RichText)),
+        ))
+          if ((p.text.style?.color?.computeLuminance() ?? 1) > 0.4) p.text.toPlainText(),
+      ];
+      expect(faint, isEmpty, reason: 'chip labels too light to read');
       // Tear down the tree and the providers (cancelling drift stream queries),
       // then let fake time run so drift's stream-close timers and any in-flight
       // fake-zone queries finish before real-async database access.
@@ -133,6 +142,7 @@ void main() {
 
   final screens = <String, Widget Function()>{
     'shell (owner)': () => const AppShell(),
+    'lock screen': () => const LockScreen(),
     'POS': () => PosScreen(orderId: openOrder),
     'checkout': () => CheckoutScreen(orderId: openOrder),
     'bill detail': () => BillDetailScreen(billId: billId),

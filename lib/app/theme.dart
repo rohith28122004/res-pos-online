@@ -53,7 +53,15 @@ ThemeData buildTheme() {
       filled: true,
       fillColor: Colors.white,
     ),
-    chipTheme: base.chipTheme.copyWith(labelStyle: const TextStyle(fontSize: 15)),
+    // An explicit colour: without one, chip labels inherited near-white text.
+    chipTheme: base.chipTheme.copyWith(
+      labelStyle: TextStyle(
+        fontSize: 15,
+        color: WidgetStateColor.resolveWith(
+          (s) => s.contains(WidgetState.disabled) ? AppColors.ink.withValues(alpha: 0.38) : AppColors.ink,
+        ),
+      ),
+    ),
     navigationRailTheme: const NavigationRailThemeData(backgroundColor: AppColors.surfaceDim),
     dividerTheme: const DividerThemeData(color: Color(0xFFE6DED3)),
   );

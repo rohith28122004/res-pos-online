@@ -11,10 +11,10 @@ external dependency · ⬜ not started
 ### 1. Foundation
 - ✅ Flutter project (Android + Windows), Material 3 theme, responsive shell (rail / bottom bar)
 - ✅ Drift schema (34 tables), foreign keys, partial unique indexes, WAL + `synchronous=FULL`
-- ✅ Versioned migrations: schema v1 frozen (`drift_schemas/`), v2 step adds guest count + index
+- ✅ Versioned migrations: schemas v1–v3 frozen (`drift_schemas/`); v2 adds guest count + index, v3 adds staff email/password columns + unique email index
 - ✅ First-run setup (no default credentials), receipt prefix, recovery code
 - ✅ Roles owner / cashier / kitchen, permissions enforced in services, owner approvals
-- ✅ Salted Argon2id PIN hashes, persistent retry delay, inactivity lock
+- ✅ Email + password sign-in (replaced PINs on 2026-10-10): owner-created accounts, forced own-password at first sign-in, salted Argon2id hashes, persistent retry delay, inactivity lock
 - ✅ Separate demo database (`cafedesk_demo.sqlite`) with banner; never mixed with production
 - ✅ Integer money, half-up rounding, largest remainder; business-day calendar with cutoff
 - ✅ Single-instance lock per data directory
@@ -59,7 +59,7 @@ external dependency · ⬜ not started
 
 ### 6. Reliability
 - ✅ Backups via `VACUUM INTO` + manifest + SHA-256; scheduled + catch-up; retention
-- ✅ Restore: path-traversal, checksum, version, currency and integrity checks; owner PIN;
+- ✅ Restore: path-traversal, checksum, version, currency and integrity checks; owner password;
   pre-restore backup; swap with rollback; sequences never move backwards; print jobs held
 - ✅ Audit trail (finalise, refunds, voids, discounts, overrides, prices, settings, backup,
   restore, printing)
@@ -77,12 +77,12 @@ Recorded honestly; "not run" means not run.
 |---|---|
 | `dart format` | clean (page width 120) |
 | `flutter analyze` | no issues |
-| Automated tests (domain, database, reporting, printing, migration, Windows spooler, widget) | 155 passed, 0 failed |
+| Automated tests (domain, database, reporting, printing, migration, Windows spooler, widget) | 168 passed, 0 failed |
 | Android release APK | built — `dist/CafeDesk-1.0.0+1-android-debug-signed.apk` (debug-signed) |
 | Windows release bundle | built — `dist/CafeDesk-1.0.0+1-windows-x64-unsigned.zip` (unsigned) |
 | Windows bundle launch on dev PC | blocked by Smart App Control (unsigned `flutter_windows.dll`) |
-| Release APK on Android emulator | installed and launched; welcome → demo seeding → lock screen → owner sign-in → shell checked by hand |
-| Scripted integration test on a device | **not completed**: the last emulator run was interrupted, so its result is unknown (see run log) |
+| Release APK on Android emulator | installed and launched; welcome, setup owner form, demo seeding, email + password sign-in (name tap fills the email), shell and Bills checked by hand |
+| Scripted integration test on a device | **passed** on the Android emulator (`integration_test/demo_sale_test.dart`: email + password sign-in, shift, sale, payment, saved bill) |
 | Physical printers | not run (no hardware) |
 | Manual acceptance checklist | not run (needs café devices and printers) |
 
@@ -144,9 +144,40 @@ Recorded honestly; "not run" means not run.
   `dist/CafeDesk-1.0.0+1-windows-x64-unsigned.zip` (13.8 MB, SHA-256
   `7a213a93a23c1d8c6822205ea28009a89e0dcf05b03e737030f04bf9b3edde6d`; unsigned). The rebuilt
   APK has not been reinstalled on the emulator.
+- 2026-10-10 — **Email + password sign-in replaces PINs** (owner's decision). Schema v3
+  (`staff.email` unique, `password_hash`, `must_change_password`; old `pin_hash` kept unused).
+  Owner creates accounts in Staff; a new person must choose their own password at first
+  sign-in; owner approvals, recovery and restore use passwords. Tests added: sign-in and
+  throttling, same message for unknown email and wrong password, unique emails, owner reset,
+  forced own-password (and refused once disabled), recovery that also sets an email,
+  v2 → v3 migration with PIN-era staff, old demo databases getting their demo sign-ins, the
+  sign-in and change-password screens. `flutter analyze` no issues; **168 tests passed**.
+- 2026-10-10 — **Android emulator, end to end:** `flutter test integration_test/demo_sale_test.dart
+  -d emulator-5554` **passed** (2 min): it started on a schema-2 demo database, which upgraded
+  and got its demo sign-ins; signed in as Demo Cashier by email + password; opened a shift; sold
+  and paid; the bill was saved. First complete on-device run of this test.
+- 2026-10-10 — **Bug found on the emulator: chip labels were near-white** (sign-in names,
+  Bills/Dashboard ranges, POS categories, filters): the theme set a chip font size but no
+  colour. Fixed in `lib/app/theme.dart`; `screens_render_test.dart` now fails on light chip
+  labels and renders the sign-in screen — proven: with the old theme 10 render tests failed,
+  with the fix all 32 pass. Rebuilt APK checked on the emulator: names readable.
+- 2026-10-10 — **Artifacts rebuilt** with sign-in and the chip fix:
+  `dist/CafeDesk-1.0.0+1-android-debug-signed.apk` (66.1 MB, SHA-256
+  `f3c58a7554f8112ea90ee65828572a604b8fd4d0139b093a8c26d6fd29e61a4c`, debug-signed) and
+  `dist/CafeDesk-1.0.0+1-windows-x64-unsigned.zip` (SHA-256
+  `4b80e7bd9b670c41d78897973275b1c4aa2446c3643eff1eecf7f21b4bf99268`, unsigned).
 
 ## Assumptions and decisions
 
+- **Sign-in is email + password (owner's decision, 2026-10-10), replacing the spec's PINs.**
+  Only an owner creates accounts (Staff → Create account: name, email, role, starting
+  password); the person must choose their own password at the first sign-in. Owners reset
+  passwords the same way; owner approvals use the owner's password. The email is only a
+  sign-in name on the device: no email is ever sent (no internet), so a forgotten owner
+  password is reset with the recovery code. Accounts from schema 2 keep their old PIN hash
+  (unused) and have no password until set: the owner signs in once through "Forgot the owner
+  password?" with the recovery code (which also sets their email), then gives staff emails and
+  passwords. Old demo databases get their demo sign-ins automatically.
 - One restaurant, one database per installation; no sync. Android and Windows are separate.
 - INR only in v1 (`currency_code` is stored; restore refuses other currencies).
 - Taxes are off until an owner creates tax profiles; nothing is assumed about GST rates.

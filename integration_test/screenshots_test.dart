@@ -5,6 +5,8 @@ import 'dart:io';
 
 import 'package:cafedesk/app/app.dart';
 import 'package:cafedesk/core/time/business_time.dart';
+import 'package:cafedesk/features/setup/application/demo_seed.dart';
+import 'package:cafedesk/shared/widgets/common.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,13 +39,10 @@ void main() {
     }
     await shot(tester, '02_lock_screen');
 
-    await tester.tap(find.text('Demo Owner'));
-    await settle(tester);
-    for (final d in ['2', '5', '8', '0']) {
-      await tester.tap(find.widgetWithText(OutlinedButton, d));
-      await tester.pump();
-    }
-    await tester.tap(find.widgetWithText(FilledButton, 'Unlock'));
+    await tester.tap(find.widgetWithText(ActionChip, 'Demo Owner'));
+    await settle(tester, 1);
+    await tester.enterText(find.byType(PasswordField), DemoLogins.password);
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await settle(tester, 6);
 
     // Open a shift through the Shift screen if needed.

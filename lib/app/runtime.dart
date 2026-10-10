@@ -183,8 +183,13 @@ class AppRuntime implements DatabaseHost {
     await db.customSelect('SELECT 1').get();
     final rt = AppRuntime._(paths, mode, db, clock);
     rt._buildServices();
-    if (mode == AppMode.demo && !await rt.services.setup.isSetupComplete()) {
-      await DemoSeeder(rt.services.ctx).seed();
+    if (mode == AppMode.demo) {
+      final seeder = DemoSeeder(rt.services.ctx);
+      if (!await rt.services.setup.isSetupComplete()) {
+        await seeder.seed();
+      } else {
+        await seeder.upgradeLogins();
+      }
     }
     return rt;
   }

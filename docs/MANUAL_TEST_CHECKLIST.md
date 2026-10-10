@@ -19,12 +19,12 @@ Record: device model + OS version, CaféDesk version, printer model + connection
 | 9 | 80 mm long names | Same on 80 mm. | As above with 48 columns. | not run | |
 | 10 | Rupee / scripts | Item named in Tamil with ₹ in a note; printer in "Text, image when needed". | Prints correctly as an image; in "Text only" the job fails with a clear message (no "?"). | not run | |
 | 11 | Split tender | Bill ₹500: UPI ₹300 + cash ₹200 received ₹500. | Change ₹300 shown and printed; dashboard counts UPI 300, cash 200. | not run | |
-| 12 | Partial refund | Refund 1 of 2 items from an earlier bill with owner PIN. | Refund receipt prints; original bill unchanged; dashboard shows refund on today's date. | not run | |
+| 12 | Partial refund | Refund 1 of 2 items from an earlier bill with the owner password. | Refund receipt prints; original bill unchanged; dashboard shows refund on today's date. | not run | |
 | 13 | Overnight cutoff | Cutoff 04:00. Make a sale at 01:30. | Counted in the previous business day in dashboard and ledger. | not run | |
 | 14 | Backup restoration | Back up, make another sale, restore the backup. | Pre-restore backup created; restored data shown; next receipt number continues after the highest used; print jobs held. | not run | |
 | 15 | Cross-platform restore | Back up on Android, restore on Windows (or the reverse). | All bills, refunds, expenses and shifts present; reports match. | not run | |
 | 16 | Clean Windows machine | Copy the release folder (or installer) to a PC without Flutter/VS; run CaféDesk.exe. | Starts; no missing DLL errors; setup works. With Smart App Control on, an unsigned build is blocked — must be code-signed. | not run | |
-| 17 | KOT flow | Send to kitchen, add more, send again, reduce a sent item with owner PIN. | Second KOT has only new items; correction ticket printed with reason. | not run | |
+| 17 | KOT flow | Send to kitchen, add more, send again, reduce a sent item with the owner password. | Second KOT has only new items; correction ticket printed with reason. | not run | |
 | 18 | Shift close | Open with float, sales, cash out, drawer expense, close with counted cash. | Expected cash = float + cash sales − cash refunds + in − out − drawer expenses; variance shown. | not run | |
 | 19 | Inactivity lock | Leave idle for the lock timeout. | Lock screen; open order intact after unlocking. | not run | |
 | 20 | Second instance (Windows) | Start CaféDesk twice. | Second window says it is already open. | not run | |

@@ -1,5 +1,5 @@
 /// Domain errors shown to staff. Messages are written to be actionable on a
-/// café counter, not for developers. Never put PINs or backup contents here.
+/// café counter, not for developers. Never put passwords or backup contents here.
 sealed class AppException implements Exception {
   const AppException(this.message);
   final String message;
@@ -34,7 +34,7 @@ class NotFoundException extends AppException {
   const NotFoundException(super.message);
 }
 
-/// Login throttling after repeated wrong PINs.
+/// Sign-in throttling after repeated wrong passwords.
 class LockedOutException extends AppException {
   const LockedOutException(super.message, this.retryAfter);
   final Duration retryAfter;

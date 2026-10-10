@@ -45,7 +45,7 @@ Then for the bill:
     difference is stored as `rounding_adjustment`.
 
 Discount limit: if `Σ entered discounts × 10000 > cashier_limit_bps × Σ gross_entered`, a
-cashier needs an owner PIN approval; owners are not limited.
+cashier needs owner approval (owner password); owners are not limited.
 
 ## Payments
 

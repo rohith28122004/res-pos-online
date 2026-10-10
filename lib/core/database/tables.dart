@@ -67,11 +67,26 @@ class RestaurantSettings extends Table {
 }
 
 @DataClassName('StaffRow')
+@TableIndex(name: 'staff_email', columns: {#email}, unique: true)
 class Staff extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get role => text()();
-  TextColumn get pinHash => text()();
+
+  /// Schema 1–2 signed in with PINs. Unused since v3 (email + password); empty
+  /// for new accounts and cleared when a password is set.
+  TextColumn get pinHash => text().clientDefault(() => '')();
+
+  /// Trimmed, lower-case sign-in email. Null only on accounts from before v3
+  /// until the owner gives them one.
+  TextColumn get email => text().nullable()();
+
+  /// Argon2id hash of the password. Null = cannot sign in yet.
+  TextColumn get passwordHash => text().nullable()();
+
+  /// Set when the owner chose the password; the person must pick their own
+  /// at the next sign-in.
+  BoolColumn get mustChangePassword => boolean().withDefault(const Constant(false))();
   BoolColumn get disabled => boolean().withDefault(const Constant(false))();
   IntColumn get failedAttempts => integer().withDefault(const Constant(0))();
   IntColumn get lockedUntil => integer().nullable()();

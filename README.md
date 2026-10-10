@@ -14,8 +14,11 @@ private data folder.
 
 ## Features
 
-* First-run setup (no default PINs), owner recovery code, owner / cashier / kitchen roles
-* Salted Argon2id PINs, retry delay, inactivity lock, owner PIN approvals for big discounts,
+* First-run setup (no default accounts), owner recovery code, owner / cashier / kitchen roles
+* Email + password sign-in; only an owner creates accounts (Staff → Create account) and a
+  new person chooses their own password at first sign-in. The email is a sign-in name only:
+  nothing is sent to it and nothing goes online
+* Salted Argon2id password hashes, retry delay, inactivity lock, owner password approvals for big discounts,
   voids after KOT, refunds, shift reopen/carry-over and restore
 * Menu with categories, variants, add-ons, sold-out toggle, archive; CSV import/export
 * Tables (occupancy from open orders), dine-in / takeaway / delivery, durable open orders
@@ -47,8 +50,8 @@ dart run build_runner build      # regenerate Drift code after schema changes
 flutter run -d windows           # or: flutter run (Android device)
 ```
 
-Demo: on first launch choose **Try the demo café**. Demo PINs are shown on the lock screen
-(Owner 2580, Cashier 1357, Kitchen 9024). The demo uses its own database file; leave it from
+Demo: on first launch choose **Try the demo café**. Demo sign-ins are shown on the lock screen
+(owner@demo.test, cashier@demo.test, kitchen@demo.test — password demo1234). The demo uses its own database file; leave it from
 Settings.
 
 Builds:
@@ -76,10 +79,10 @@ Builds:
 
 ## Security notes
 
-* PINs restrict normal use of the app. They do **not** encrypt the database or backups: anyone
+* Passwords restrict normal use of the app. They do **not** encrypt the database or backups: anyone
   with administrator access to the device, or a backup file, can read the data.
 * Backups are not encrypted. Keep copies somewhere you control.
 * Card and UPI payments are recorded manually; CaféDesk never stores card numbers or UPI
   credentials and does not verify payments.
 * Owner recovery: the one-time recovery code from setup (or a second owner account). There is
-  no master PIN.
+  no master password.

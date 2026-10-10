@@ -11,7 +11,7 @@ A `.cdbackup` file is a ZIP containing exactly two entries:
   database, platform, reason (`manual`, `scheduled`, `pre-restore`), `"encrypted": false`
 
 **Backups are not encrypted.** Anyone with the file can open the sales data. Keep copies on
-storage you control. PINs protect the app, not the files.
+storage you control. Passwords protect the app, not the files.
 
 ## When backups happen
 
@@ -42,7 +42,7 @@ Settings → Backup and restore → Restore from a file… (or pick one from the
      its `user_version` matches the manifest
 2. A summary is shown (restaurant, backup date, bill count, source platform). Restore
    **replaces** all data — it is not a merge.
-3. The owner re-enters their PIN (fresh approval).
+3. The owner re-enters their password (fresh approval).
 4. A **pre-restore backup** of the current data is created.
 5. The staged copy is adjusted:
    * queued/sending print jobs become **held** (never auto-printed after a restore)

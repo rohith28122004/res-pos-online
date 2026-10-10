@@ -4,9 +4,11 @@ import 'package:cafedesk/app/providers.dart';
 import 'package:cafedesk/app/runtime.dart';
 import 'package:cafedesk/app/theme.dart';
 import 'package:cafedesk/core/backup/backup_service.dart';
+import 'package:cafedesk/core/security/permissions.dart';
 import 'package:cafedesk/features/auth/presentation/lock_screen.dart';
 import 'package:cafedesk/features/orders/domain/order_models.dart';
 import 'package:cafedesk/features/orders/presentation/pos_screen.dart';
+import 'package:cafedesk/shared/widgets/common.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,35 +16,97 @@ import 'package:flutter_test/flutter_test.dart';
 import '../support/harness.dart';
 
 void main() {
-  testWidgets('PIN pad submits digits and shows errors', (tester) async {
-    String? submitted;
+  /// A seeded installation behind real providers (runtime + services).
+  Future<(Harness, ProviderContainer)> boot(WidgetTester tester, Widget home) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    late Harness h;
+    await tester.runAsync(() async => h = await Harness.create());
+    final dir = Directory.systemTemp.createTempSync('cafedesk_auth_ui');
+    final rt = AppRuntime.forTesting(AppPaths(dir, dir), AppMode.production, h.db, h.clock);
+    final container = ProviderContainer(
+      overrides: [runtimeProvider.overrideWithValue(rt), servicesProvider.overrideWithValue(rt.services)],
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: PinEntry(
-            onSubmit: (pin) async {
-              submitted = pin;
-              if (pin != '4826') throw StateError('Wrong PIN');
-            },
-          ),
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(theme: buildTheme(), home: home),
+      ),
+    );
+    await _settle(tester);
+    return (h, container);
+  }
+
+  testWidgets('lock screen: tap a name, wrong password errors, right password signs in', (tester) async {
+    final (h, container) = await boot(tester, const LockScreen());
+    expect(find.text('Sign in to use the till'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ActionChip, 'Cara Cashier'));
+    await _settle(tester);
+    expect(find.text(cashierEmail), findsOneWidget, reason: 'tapping a name fills in the email');
+
+    await tester.enterText(find.byType(PasswordField), 'wrong-password');
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+    await _settleUntil(tester, () => find.text('Email or password is wrong').evaluate().isNotEmpty);
+    expect(find.text('Email or password is wrong'), findsOneWidget);
+    expect(container.read(sessionProvider), isNull);
+
+    await tester.enterText(find.byType(PasswordField), cashierPassword);
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+    await _settleUntil(tester, () => container.read(sessionProvider) != null);
+    expect(container.read(sessionProvider)?.staffId, h.cashier.staffId);
+
+    await _teardown(tester, container);
+    await tester.runAsync(() => h.dispose());
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  testWidgets('a new account must choose its own password before using the app', (tester) async {
+    late Harness h;
+    late Actor asha;
+    final (booted, container) = await boot(tester, const SizedBox());
+    h = booted;
+    await tester.runAsync(() async {
+      await h.auth.createStaff(
+        h.owner,
+        name: 'Asha',
+        email: 'asha@test.cafe',
+        role: StaffRole.cashier,
+        password: 'starting-pass',
+      );
+      asha = await h.auth.login('asha@test.cafe', 'starting-pass');
+    });
+    expect(asha.mustChangePassword, isTrue);
+    container.read(sessionProvider.notifier).login(asha);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: buildTheme(),
+          home: PasswordChangeRequiredScreen(actor: asha),
         ),
       ),
     );
-    for (final d in ['1', '2', '3', '4']) {
-      await tester.tap(find.widgetWithText(OutlinedButton, d));
-    }
-    await tester.tap(find.widgetWithText(FilledButton, 'Unlock'));
-    await tester.pumpAndSettle();
-    expect(submitted, '1234');
-    expect(find.textContaining('Wrong PIN'), findsOneWidget);
-    for (final d in ['4', '8', '2', '6']) {
-      await tester.tap(find.widgetWithText(OutlinedButton, d));
-    }
-    await tester.tap(find.widgetWithText(FilledButton, 'Unlock'));
-    await tester.pumpAndSettle();
-    expect(submitted, '4826');
-    expect(find.textContaining('Wrong PIN'), findsNothing);
-  });
+    await _settle(tester);
+
+    final fields = find.byType(PasswordField);
+    await tester.enterText(fields.at(0), 'my-own-secret');
+    await tester.enterText(fields.at(1), 'does-not-match');
+    await tester.tap(find.text('Save and continue'));
+    await tester.pump();
+    expect(find.text('Passwords do not match'), findsOneWidget);
+
+    await tester.enterText(fields.at(1), 'my-own-secret');
+    await tester.tap(find.text('Save and continue'));
+    await _settleUntil(tester, () => container.read(sessionProvider)?.mustChangePassword == false);
+    expect(container.read(sessionProvider)?.mustChangePassword, isFalse);
+
+    await _teardown(tester, container);
+    await tester.runAsync(() async {
+      expect((await h.auth.login('asha@test.cafe', 'my-own-secret')).mustChangePassword, isFalse);
+      await h.dispose();
+    });
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
   testWidgets('tap items, pay cash with change, bill is saved', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
@@ -139,3 +203,25 @@ Future<void> disposeTree(WidgetTester tester) async {
 
 /// The menu button (not the cart line) with [name].
 Finder menuItem(String name) => find.descendant(of: find.byType(GridView), matching: find.text(name));
+
+/// Like [_settle], but keeps going (up to ~10 s of real time) until [done]:
+/// password hashing runs on a real background isolate.
+Future<void> _settleUntil(WidgetTester tester, bool Function() done) async {
+  for (var i = 0; i < 200 && !done(); i++) {
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump(const Duration(milliseconds: 20));
+  }
+  await _settle(tester);
+}
+
+/// Removes the tree, disposes the providers (closing drift stream queries),
+/// then lets fake time run so stream-close timers and fake-zone queries finish
+/// before any real-async database access.
+Future<void> _teardown(WidgetTester tester, ProviderContainer container) async {
+  await tester.pumpWidget(const SizedBox());
+  container.dispose();
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+  }
+}

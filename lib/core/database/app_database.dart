@@ -55,7 +55,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// Bump together with a migration step and a schema dump
   /// (`dart run drift_dev make-migrations`). Never edit an old step.
-  static const int latestSchemaVersion = 2;
+  static const int latestSchemaVersion = 3;
 
   @override
   int get schemaVersion => latestSchemaVersion;
@@ -85,6 +85,14 @@ class AppDatabase extends _$AppDatabase {
       await m.addColumn(schema.orders, schema.orders.guestCount);
       await m.addColumn(schema.bills, schema.bills.guestCount);
       await m.createIndex(schema.billsTypeDate);
+    },
+    // v3: email + password sign-in replaces PINs. Old PIN hashes stay in place
+    // (unused); accounts from v2 have no password until the owner sets one.
+    from2To3: (m, schema) async {
+      await m.addColumn(schema.staff, schema.staff.email);
+      await m.addColumn(schema.staff, schema.staff.passwordHash);
+      await m.addColumn(schema.staff, schema.staff.mustChangePassword);
+      await m.createIndex(schema.staffEmail);
     },
   );
 

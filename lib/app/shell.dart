@@ -295,13 +295,13 @@ class _UserMenu extends ConsumerWidget {
       switch (v) {
         case 'lock':
           ref.read(sessionProvider.notifier).logout();
-        case 'pin':
-          await showChangePinDialog(context, ref);
+        case 'password':
+          await showChangePasswordDialog(context, ref);
       }
     },
     itemBuilder: (_) => [
       PopupMenuItem(enabled: false, child: Text('${actor.name} · ${actor.role.label}')),
-      const PopupMenuItem(value: 'pin', child: Text('Change my PIN')),
+      const PopupMenuItem(value: 'password', child: Text('Change my password')),
       const PopupMenuItem(value: 'lock', child: Text('Lock / switch user')),
     ],
   );

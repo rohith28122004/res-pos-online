@@ -268,6 +268,84 @@ class MoneyField extends StatelessWidget {
   );
 }
 
+/// Hidden password input with a show/hide button. Works inside or outside a
+/// [Form].
+class PasswordField extends StatefulWidget {
+  const PasswordField({
+    super.key,
+    required this.controller,
+    this.label = 'Password',
+    this.helper,
+    this.autofocus = false,
+    this.validator,
+    this.onSubmitted,
+    this.newPassword = false,
+    this.focusNode,
+  });
+  final TextEditingController controller;
+  final FocusNode? focusNode;
+  final String label;
+  final String? helper;
+  final bool autofocus;
+  final FormFieldValidator<String>? validator;
+  final ValueChanged<String>? onSubmitted;
+
+  /// Choosing a new password (not typing an existing one).
+  final bool newPassword;
+
+  @override
+  State<PasswordField> createState() => _PasswordFieldState();
+}
+
+class _PasswordFieldState extends State<PasswordField> {
+  bool _visible = false;
+
+  @override
+  Widget build(BuildContext context) => TextFormField(
+    controller: widget.controller,
+    focusNode: widget.focusNode,
+    autofocus: widget.autofocus,
+    obscureText: !_visible,
+    autocorrect: false,
+    enableSuggestions: false,
+    maxLength: 128,
+    autofillHints: [widget.newPassword ? AutofillHints.newPassword : AutofillHints.password],
+    validator: widget.validator,
+    onFieldSubmitted: widget.onSubmitted,
+    decoration: InputDecoration(
+      labelText: widget.label,
+      helperText: widget.helper,
+      counterText: '',
+      suffixIcon: IconButton(
+        tooltip: _visible ? 'Hide password' : 'Show password',
+        icon: Icon(_visible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+        onPressed: () => setState(() => _visible = !_visible),
+      ),
+    ),
+  );
+}
+
+/// Email input for sign-in accounts.
+class EmailField extends StatelessWidget {
+  const EmailField({super.key, required this.controller, this.label = 'Email', this.autofocus = false, this.validator});
+  final TextEditingController controller;
+  final String label;
+  final bool autofocus;
+  final FormFieldValidator<String>? validator;
+
+  @override
+  Widget build(BuildContext context) => TextFormField(
+    controller: controller,
+    autofocus: autofocus,
+    keyboardType: TextInputType.emailAddress,
+    autocorrect: false,
+    maxLength: 254,
+    autofillHints: const [AutofillHints.email],
+    validator: validator,
+    decoration: InputDecoration(labelText: label, counterText: ''),
+  );
+}
+
 int? tryParseMoney(String text) {
   if (text.trim().isEmpty) return null;
   try {
@@ -365,7 +443,7 @@ Future<String?> askText(
   return r;
 }
 
-/// Large digit keypad used for PINs and amounts on touch screens.
+/// Large digit keypad used for amounts on touch screens.
 class NumberPad extends StatelessWidget {
   const NumberPad({
     super.key,

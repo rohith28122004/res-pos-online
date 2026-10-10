@@ -231,7 +231,7 @@ void main() {
     expect((await db.select(db.bills).get()).length, 2);
   });
 
-  test('restore requires an owner and a fresh PIN approval', () async {
+  test('restore requires an owner and a fresh password approval', () async {
     final b = await backups(h.ctx).createBackup(actor: h.owner);
     final insp = await backups(h.ctx).inspect(h.owner, await File(b.path).readAsBytes());
     final approval = await h.approval();

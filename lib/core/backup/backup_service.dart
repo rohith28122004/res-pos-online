@@ -337,7 +337,7 @@ class BackupService {
 
   /// Replaces the live database with a staged backup.
   ///
-  /// 1. owner + fresh PIN approval, 2. pre-restore backup of current data,
+  /// 1. owner + fresh password approval, 2. pre-restore backup of current data,
   /// 3. adjust the staged copy (hold print jobs, keep receipt numbers moving
   /// forward, optional new prefix), 4. close → swap → reopen, 5. roll back
   /// to the previous file if anything fails.

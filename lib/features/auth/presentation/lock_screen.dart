@@ -8,12 +8,13 @@ import '../../../app/providers.dart';
 import '../../../app/runtime.dart';
 import '../../../app/theme.dart';
 import '../../../core/errors/app_exception.dart';
+import '../../../core/security/password_hasher.dart';
 import '../../../core/security/permissions.dart';
-import '../../../core/security/pin_hasher.dart';
 import '../../../shared/widgets/common.dart';
 import '../../setup/application/demo_seed.dart';
 import '../application/auth_service.dart';
 
+/// Email + password sign-in. Tapping a name fills in that person's email.
 class LockScreen extends ConsumerStatefulWidget {
   const LockScreen({super.key});
   @override
@@ -21,7 +22,42 @@ class LockScreen extends ConsumerStatefulWidget {
 }
 
 class _LockScreenState extends ConsumerState<LockScreen> {
-  StaffSummary? _selected;
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _passwordFocus = FocusNode();
+  String? _error;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    _passwordFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _signIn() async {
+    if (_busy) return;
+    if (_email.text.trim().isEmpty || _password.text.isEmpty) {
+      setState(() => _error = 'Enter your email and password');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final actor = await ref.read(servicesProvider).auth.login(_email.text, _password.text);
+      ref.read(sessionProvider.notifier).login(actor);
+    } on Object catch (e) {
+      if (mounted) setState(() => _error = errorText(e));
+    } finally {
+      if (mounted) {
+        _password.clear();
+        setState(() => _busy = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,65 +75,96 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.lock_outline, size: 40, color: AppColors.accent),
-                        const SizedBox(height: 8),
-                        Text(settings?.name ?? 'CaféDesk', style: t.headlineSmall, textAlign: TextAlign.center),
-                        const SizedBox(height: 4),
-                        Text(
-                          _selected == null ? 'Who is using the till?' : 'Enter PIN for ${_selected!.name}',
-                          style: t.bodyLarge,
-                        ),
-                        const SizedBox(height: 20),
-                        if (_selected == null)
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: AutofillGroup(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Icon(Icons.lock_outline, size: 40, color: AppColors.accent),
+                          const SizedBox(height: 8),
+                          Text(settings?.name ?? 'CaféDesk', style: t.headlineSmall, textAlign: TextAlign.center),
+                          const SizedBox(height: 4),
+                          Text('Sign in to use the till', style: t.bodyLarge, textAlign: TextAlign.center),
+                          const SizedBox(height: 20),
+                          EmailField(controller: _email),
+                          const SizedBox(height: 12),
+                          PasswordField(
+                            controller: _password,
+                            focusNode: _passwordFocus,
+                            onSubmitted: (_) => _signIn(),
+                          ),
+                          SizedBox(
+                            height: 40,
+                            child: Center(
+                              child: _error == null
+                                  ? null
+                                  : Text(
+                                      _error!,
+                                      style: const TextStyle(color: AppColors.danger),
+                                      textAlign: TextAlign.center,
+                                    ),
+                            ),
+                          ),
+                          FilledButton(
+                            onPressed: _busy ? null : _signIn,
+                            child: _busy
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Text('Sign in'),
+                          ),
+                          const SizedBox(height: 20),
                           StreamView<List<StaffSummary>>(
                             stream: services.auth.watchStaff(),
-                            builder: (context, staff) => Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
-                              alignment: WrapAlignment.center,
-                              children: [
-                                for (final s in staff)
-                                  SizedBox(
-                                    width: 160,
-                                    height: 96,
-                                    child: OutlinedButton(
-                                      onPressed: () => setState(() => _selected = s),
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(_roleIcon(s.role)),
-                                          const SizedBox(height: 4),
-                                          Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                                          Text(s.role.label, style: t.bodySmall),
-                                        ],
-                                      ),
-                                    ),
+                            builder: (context, staff) {
+                              final quick = staff.where((s) => s.canSignIn).toList();
+                              if (quick.isEmpty) return const SizedBox.shrink();
+                              return Column(
+                                children: [
+                                  Text('Or tap your name', style: t.bodySmall),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    alignment: WrapAlignment.center,
+                                    children: [
+                                      for (final s in quick)
+                                        ActionChip(
+                                          avatar: Icon(_roleIcon(s.role), size: 18),
+                                          label: Text(s.name),
+                                          tooltip: '${s.role.label} · ${s.email}',
+                                          onPressed: () {
+                                            setState(() {
+                                              _email.text = s.email!;
+                                              _error = null;
+                                            });
+                                            _passwordFocus.requestFocus();
+                                          },
+                                        ),
+                                    ],
                                   ),
-                              ],
-                            ),
-                          )
-                        else
-                          PinEntry(
-                            key: ValueKey(_selected!.id),
-                            onSubmit: (pin) async {
-                              final actor = await services.auth.login(_selected!.id, pin);
-                              ref.read(sessionProvider.notifier).login(actor);
+                                ],
+                              );
                             },
-                            onCancel: () => setState(() => _selected = null),
                           ),
-                        const SizedBox(height: 16),
-                        if (isDemo)
-                          Text(
-                            'Demo PINs — Owner ${DemoPins.owner} · Cashier ${DemoPins.cashier} · Kitchen ${DemoPins.kitchen}',
-                            style: t.bodySmall,
-                            textAlign: TextAlign.center,
+                          const SizedBox(height: 16),
+                          if (isDemo)
+                            Text(
+                              'Demo sign-in: ${DemoLogins.ownerEmail}, ${DemoLogins.cashierEmail} or '
+                              '${DemoLogins.kitchenEmail} — password ${DemoLogins.password}',
+                              style: t.bodySmall,
+                              textAlign: TextAlign.center,
+                            ),
+                          TextButton(
+                            onPressed: () =>
+                                showDialog<void>(context: context, builder: (_) => const _RecoveryDialog()),
+                            child: const Text('Forgot the owner password?'),
                           ),
-                        TextButton(onPressed: () => _recover(context), child: const Text('Forgot the owner PIN?')),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -107,10 +174,6 @@ class _LockScreenState extends ConsumerState<LockScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _recover(BuildContext context) async {
-    await showDialog<void>(context: context, builder: (_) => const _RecoveryDialog());
   }
 
   static IconData _roleIcon(StaffRole r) => switch (r) {
@@ -143,140 +206,105 @@ class DemoBanner extends StatelessWidget {
   );
 }
 
-/// PIN pad with hidden digits. Works with touch and the keyboard.
-class PinEntry extends StatefulWidget {
-  const PinEntry({super.key, required this.onSubmit, this.onCancel, this.submitLabel = 'Unlock'});
-  final Future<void> Function(String pin) onSubmit;
-  final VoidCallback? onCancel;
-  final String submitLabel;
-
+/// Shown right after signing in with a password the owner chose: the person
+/// picks their own before using the app.
+class PasswordChangeRequiredScreen extends ConsumerStatefulWidget {
+  const PasswordChangeRequiredScreen({super.key, required this.actor});
+  final Actor actor;
   @override
-  State<PinEntry> createState() => _PinEntryState();
+  ConsumerState<PasswordChangeRequiredScreen> createState() => _PasswordChangeRequiredScreenState();
 }
 
-class _PinEntryState extends State<PinEntry> {
-  String _pin = '';
-  String? _error;
+class _PasswordChangeRequiredScreenState extends ConsumerState<PasswordChangeRequiredScreen> {
+  final _form = GlobalKey<FormState>();
+  final _next = TextEditingController();
+  final _repeat = TextEditingController();
   bool _busy = false;
-  final _focus = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
-  }
 
   @override
   void dispose() {
-    _focus.dispose();
+    _next.dispose();
+    _repeat.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (_pin.length < 4 || _busy) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
+  Future<void> _save() async {
+    if (_busy || !_form.currentState!.validate()) return;
+    setState(() => _busy = true);
     try {
-      await widget.onSubmit(_pin);
-    } on AppException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      await ref.read(servicesProvider).auth.chooseOwnPassword(widget.actor, _next.text);
+      ref.read(sessionProvider.notifier).login(widget.actor.withPasswordChanged());
     } on Object catch (e) {
-      if (mounted) setState(() => _error = errorText(e));
+      if (mounted) showError(context, e);
     } finally {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _pin = '';
-        });
-      }
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  void _digit(String d) {
-    if (_pin.length >= 8) return;
-    setState(() {
-      _pin += d;
-      _error = null;
-    });
-  }
-
-  void _back() {
-    if (_pin.isEmpty) return;
-    setState(() => _pin = _pin.substring(0, _pin.length - 1));
-  }
-
   @override
-  Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _focus,
-      onKeyEvent: (node, event) {
-        if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        final ch = event.character;
-        if (ch != null && RegExp(r'^\d$').hasMatch(ch)) {
-          _digit(ch);
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.backspace) {
-          _back();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-          unawaited(_submit());
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.escape) {
-          widget.onCancel?.call();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Semantics(
-            label: 'PIN, ${_pin.length} digits entered',
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < (_pin.length < 4 ? 4 : _pin.length); i++)
-                  Container(
-                    margin: const EdgeInsets.all(6),
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: i < _pin.length ? AppColors.accent : Colors.transparent,
-                      border: Border.all(color: AppColors.accent, width: 2),
-                    ),
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Choose your password'),
+      actions: [
+        TextButton(onPressed: () => ref.read(sessionProvider.notifier).logout(), child: const Text('Sign out')),
+      ],
+    ),
+    body: Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Form(
+            key: _form,
+            child: AutofillGroup(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Hi ${widget.actor.name}. The owner set a starting password for you. '
+                    'Choose your own now — only you should know it.',
                   ),
-              ],
+                  const SizedBox(height: 16),
+                  PasswordField(
+                    controller: _next,
+                    label: 'New password',
+                    helper: 'At least ${PasswordHasher.minPasswordLength} characters',
+                    autofocus: true,
+                    newPassword: true,
+                    validator: _passwordRule,
+                  ),
+                  const SizedBox(height: 12),
+                  PasswordField(
+                    controller: _repeat,
+                    label: 'Repeat new password',
+                    newPassword: true,
+                    validator: (v) => v != _next.text ? 'Passwords do not match' : null,
+                    onSubmitted: (_) => _save(),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(onPressed: _busy ? null : _save, child: const Text('Save and continue')),
+                ],
+              ),
             ),
           ),
-          SizedBox(
-            height: 40,
-            child: Center(
-              child: _busy
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : (_error == null
-                        ? null
-                        : Text(
-                            _error!,
-                            style: const TextStyle(color: AppColors.danger),
-                            textAlign: TextAlign.center,
-                          )),
-            ),
-          ),
-          NumberPad(onDigit: _digit, onBackspace: _back, onDone: _submit, doneLabel: widget.submitLabel),
-          if (widget.onCancel != null) TextButton(onPressed: widget.onCancel, child: const Text('Back')),
-        ],
+        ),
       ),
-    );
+    ),
+  );
+}
+
+/// Form validator for a new password.
+String? _passwordRule(String? v) {
+  try {
+    PasswordHasher.validatePassword(v ?? '');
+    return null;
+  } on AppException catch (e) {
+    return e.message;
   }
 }
 
-/// Owner enters their PIN to approve one action.
+/// Owner enters their password to approve one action.
 Future<OwnerApproval?> requestOwnerApproval(BuildContext context, WidgetRef ref, {required String purpose}) async {
   final services = ref.read(servicesProvider);
   final owners = await services.auth.activeOwners();
@@ -323,6 +351,34 @@ class _ApprovalDialog extends StatefulWidget {
 
 class _ApprovalDialogState extends State<_ApprovalDialog> {
   late StaffSummary? _owner = widget.owners.length == 1 ? widget.owners.single : null;
+  final _password = TextEditingController();
+  String? _error;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _approve() async {
+    if (_owner == null || _busy || _password.text.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final approval = await widget.auth.approveAsOwner(_owner!.id, _password.text);
+      if (mounted) Navigator.pop(context, approval);
+    } on Object catch (e) {
+      if (mounted) setState(() => _error = errorText(e));
+    } finally {
+      if (mounted) {
+        _password.clear();
+        setState(() => _busy = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
@@ -340,23 +396,36 @@ class _ApprovalDialogState extends State<_ApprovalDialog> {
                 ListTile(
                   leading: const Icon(Icons.person_outline),
                   title: Text(o.name),
+                  subtitle: o.email == null ? null : Text(o.email!),
                   onTap: () => setState(() => _owner = o),
                 )
             else ...[
               Text(_owner!.name, style: Theme.of(context).textTheme.titleMedium),
-              PinEntry(
-                submitLabel: 'Approve',
-                onSubmit: (pin) async {
-                  final approval = await widget.auth.approveAsOwner(_owner!.id, pin);
-                  if (context.mounted) Navigator.pop(context, approval);
-                },
+              const SizedBox(height: 8),
+              PasswordField(
+                controller: _password,
+                label: 'Owner password',
+                autofocus: true,
+                onSubmitted: (_) => _approve(),
               ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: AppColors.danger),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
             ],
           ],
         ),
       ),
     ),
-    actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))],
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      if (_owner != null) FilledButton(onPressed: _busy ? null : _approve, child: const Text('Approve')),
+    ],
   );
 }
 
@@ -367,8 +436,12 @@ class _RecoveryDialog extends ConsumerStatefulWidget {
 }
 
 class _RecoveryDialogState extends ConsumerState<_RecoveryDialog> {
+  final _form = GlobalKey<FormState>();
   final _code = TextEditingController();
-  final _pin = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _repeat = TextEditingController();
+  late final Future<List<StaffSummary>> _owners = ref.read(servicesProvider).auth.activeOwners();
   String? _ownerId;
   String? _newCode;
   bool _busy = false;
@@ -376,20 +449,40 @@ class _RecoveryDialogState extends ConsumerState<_RecoveryDialog> {
   @override
   void dispose() {
     _code.dispose();
-    _pin.dispose();
+    _email.dispose();
+    _password.dispose();
+    _repeat.dispose();
     super.dispose();
+  }
+
+  Future<void> _reset() async {
+    if (_busy || _ownerId == null || !_form.currentState!.validate()) return;
+    setState(() => _busy = true);
+    try {
+      final code = await ref
+          .read(servicesProvider)
+          .auth
+          .resetOwnerPasswordWithRecoveryCode(_ownerId!, _code.text, _password.text, email: _email.text);
+      if (mounted) setState(() => _newCode = code);
+    } on Object catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final services = ref.watch(servicesProvider);
     if (_newCode != null) {
       return AlertDialog(
-        title: const Text('Owner PIN reset'),
+        title: const Text('Owner password reset'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Your old recovery code no longer works. Write down this new one:'),
+            const Text(
+              'Sign in with your email and new password. Your old recovery code no longer works — '
+              'write down this new one:',
+            ),
             const SizedBox(height: 12),
             SelectableText(_newCode!, style: const TextStyle(fontFamily: 'monospace', fontSize: 22)),
           ],
@@ -398,63 +491,76 @@ class _RecoveryDialogState extends ConsumerState<_RecoveryDialog> {
       );
     }
     return AlertDialog(
-      title: const Text('Reset owner PIN'),
+      title: const Text('Reset owner password'),
       content: SizedBox(
         width: 380,
         child: FutureView<List<StaffSummary>>(
-          future: services.auth.activeOwners(),
-          builder: (context, owners) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Use the recovery code you wrote down during setup. There is no master PIN. '
-                'If the code is lost and no other owner can sign in, restore a backup whose owner PIN you know.',
+          future: _owners,
+          builder: (context, owners) => Form(
+            key: _form,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Use the recovery code you wrote down during setup. There is no master password. '
+                    'If the code is lost and no other owner can sign in, restore a backup whose owner password '
+                    'you know.',
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: _ownerId,
+                    decoration: const InputDecoration(labelText: 'Owner'),
+                    items: [for (final o in owners) DropdownMenuItem(value: o.id, child: Text(o.name))],
+                    onChanged: (v) => setState(() {
+                      _ownerId = v;
+                      _email.text = owners.firstWhere((o) => o.id == v).email ?? '';
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _code,
+                    decoration: const InputDecoration(labelText: 'Recovery code'),
+                    textCapitalization: TextCapitalization.characters,
+                    validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the recovery code' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  EmailField(
+                    controller: _email,
+                    label: 'Owner email (for signing in)',
+                    validator: (v) {
+                      try {
+                        PasswordHasher.normalizeEmail(v ?? '');
+                        return null;
+                      } on AppException catch (e) {
+                        return e.message;
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  PasswordField(
+                    controller: _password,
+                    label: 'New password',
+                    newPassword: true,
+                    validator: _passwordRule,
+                  ),
+                  const SizedBox(height: 12),
+                  PasswordField(
+                    controller: _repeat,
+                    label: 'Repeat new password',
+                    newPassword: true,
+                    validator: (v) => v != _password.text ? 'Passwords do not match' : null,
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: _ownerId,
-                decoration: const InputDecoration(labelText: 'Owner'),
-                items: [for (final o in owners) DropdownMenuItem(value: o.id, child: Text(o.name))],
-                onChanged: (v) => setState(() => _ownerId = v),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _code,
-                decoration: const InputDecoration(labelText: 'Recovery code'),
-                textCapitalization: TextCapitalization.characters,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _pin,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(8)],
-                decoration: const InputDecoration(labelText: 'New PIN'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: _busy || _ownerId == null
-              ? null
-              : () async {
-                  setState(() => _busy = true);
-                  try {
-                    PinHasher.validatePin(_pin.text);
-                    final code = await services.auth.resetOwnerPinWithRecoveryCode(_ownerId!, _code.text, _pin.text);
-                    if (mounted) setState(() => _newCode = code);
-                  } on Object catch (e) {
-                    if (context.mounted) showError(context, e);
-                  } finally {
-                    if (mounted) setState(() => _busy = false);
-                  }
-                },
-          child: const Text('Reset PIN'),
-        ),
+        FilledButton(onPressed: _busy || _ownerId == null ? null : _reset, child: const Text('Reset password')),
       ],
     );
   }
