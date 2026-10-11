@@ -76,8 +76,8 @@ external dependency · ⬜ not started
   sockets, durable mailbox in DO SQLite, 30-minute expiry, quarantine on new epoch, relay
   with 503/504), D1 ledger + report projections (rebuildable), private R2 storage
 - ✅ **Deployed 2026-10-11 on the owner's instruction**: `https://cafedesk-online.growlineecommerce.workers.dev`
-  (D1/R2 `cafedesk-online`, APAC; `CLOUDFLARE_SETUP.md` §8). Smoke checks passed; the full
-  end-to-end run against it waits for the owner's OK (it writes test restaurants)
+  (D1/R2 `cafedesk-online`, APAC; `CLOUDFLARE_SETUP.md` §8). Smoke checks passed; full
+  end-to-end against it passed (owner's OK; left two labelled test restaurants)
 - ✅ Enrollment with single-use operator codes; device registry from host events; ingest with
   gap/duplicate/content-mismatch checks; report cards from `REPORT_DEFINITIONS.md` with
   freshness (acknowledged cursor, last ingest time)
@@ -129,7 +129,7 @@ external dependency · ⬜ not started
 | Flutter tests | see the latest run-log entry |
 | Cloud tests | see the latest run-log entry |
 | Cloud end-to-end (`--dart-define=CAFEDESK_CLOUD_E2E=true test/e2e`, local `wrangler dev`) | 2 passed |
-| Deployed cloud | live at `https://cafedesk-online.growlineecommerce.workers.dev`; smoke checks passed; full end-to-end against it not run yet (needs the owner's OK) |
+| Deployed cloud | live at `https://cafedesk-online.growlineecommerce.workers.dev`; smoke checks passed; end-to-end against it: 2 passed |
 | Android / Windows builds | Windows zip built (unsigned); Android arm64 TEST APK (profile) built; Android release APK blocked here |
 | Physical devices / printers | not run (none available here) |
 
@@ -213,8 +213,11 @@ external dependency · ⬜ not started
   localhost; test added; redeployed (version `91be11a3…`) and re-checked (http 403, https 200).
   `issue-enrollment-code` gained `--env production`. Cloud vitest 92 passed, typecheck clean;
   Flutter 241 passed, 6 skipped (opt-in end-to-end + screenshots). The full end-to-end run
-  against the deployed relay was stopped by the session's safety check (it would write test
-  restaurants into the production database) — waiting for the owner's OK.
+  against the deployed relay was first stopped by the session's safety check (it writes test
+  restaurants into the production database); after the owner's OK it ran: **2 passed in 29 s**
+  against `https://cafedesk-online.growlineecommerce.workers.dev`. Test restaurants left in the
+  production D1 (label "E2E remote check"): `01a1291d-e9ea-7f54-98a2-70c61b46aeeb`,
+  `01a1291e-35d4-71e6-b192-5c358c91edbf`.
 
 ## Assumptions and decisions
 

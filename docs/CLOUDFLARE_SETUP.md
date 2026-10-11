@@ -188,10 +188,17 @@ bundled workerd; includes `web_socket_auto_reply_to_close`).
 
 Smoke checks run against the deployed URL: `GET /v1/health` → 200 with `no-store` and
 `nosniff`; host route without / with a bogus credential → 401; enroll with malformed keys → 400,
-with a wrong code → 401; unknown route → 404; plain `http://` → 403. **Not yet run:** the full
-end-to-end test against the deployed relay (it enrolls test restaurants in the production
-database, so it waits for the owner's OK):
-`flutter test --dart-define=CAFEDESK_CLOUD_URL=https://cafedesk-online.growlineecommerce.workers.dev test/e2e`.
+with a wrong code → 401; unknown route → 404; plain `http://` → 403.
+
+Full end-to-end against the deployed relay, with the owner's OK (2026-10-11):
+`flutter test --dart-define=CAFEDESK_CLOUD_URL=https://cafedesk-online.growlineecommerce.workers.dev test/e2e`
+→ **2 passed in 29 s** (POS host and phone engine on the dev PC, relay on Cloudflare): LAN down →
+one order / one ticket / one print job through the cloud, no duplicate over the LAN afterwards,
+nothing accepted while the POS was offline and delivered once on return, sign-in through the
+relay, cloud report cards equal to the POS dashboard; restore + reconnect → cloud report equals
+the restored POS. It left two **test restaurants** in the production D1 (code label
+"E2E remote check", name "Test Café", 15 events each), isolated from real cafés:
+`01a1291d-e9ea-7f54-98a2-70c61b46aeeb` and `01a1291e-35d4-71e6-b192-5c358c91edbf`.
 
 Day-to-day operation (from `cloud/`):
 
@@ -238,8 +245,8 @@ in §1 (the free plan's per-request CPU limit is the one most likely to matter f
 
 ## 9. Known limitations / pending
 
-* Deployed (§8), but only smoke-checked: the full end-to-end run against the deployed relay, real
-  phones and real café networks are still pending.
+* Deployed (§8) and checked end-to-end from the dev PC; real phones and real café networks are
+  still pending.
 * Backups are buffered in memory (size cap) rather than streamed.
 * `events_available` from the host is recorded but not forwarded; devices are woken only after
   a batch is durably ingested.
