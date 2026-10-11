@@ -90,7 +90,7 @@ host replicates through events (`session.revoked`, `staff.access_changed`).
 |---|---|---|---|
 | owner | waiter, kitchen | all | snapshots, cloud reports |
 | cashier | waiter, kitchen | all order and ticket commands | snapshots |
-| waiter | waiter | `order.place`, `order.add`, `order.change_quantity`, `order.send_to_kitchen` | waiter snapshot |
+| waiter | waiter | `order.place`, `order.add`, `order.change_quantity`, `order.send_to_kitchen`; `ticket.set_status` only when the café has no kitchen (`kitchenEnabled: false`, decided by the POS) | waiter snapshot |
 | kitchen | kitchen | `ticket.set_status` | kitchen snapshot |
 
 Payments, refunds, checkout, discounts, staff and settings are **not** remote actions in v1;
@@ -284,6 +284,7 @@ jitter, always with the same command. Every other error is terminal and shown fo
 | `session.revoked` | staff_session | cloud | `{sid, staffId, revokedAt}` |
 | `staff.access_changed` | staff | cloud | `{staffId, role, disabled}` |
 | `host.restored` | host | cloud | `{epoch, previousEpoch}` — see §5.4 |
+| `settings.changed` | settings | devices + cloud | `{}` (refetch the snapshot; e.g. kitchen switched on/off) |
 
 Financial payload rows are the host's database rows serialized with Drift `toJson()` —
 camelCase field names exactly as in `lib/core/database/tables.dart` (for example
@@ -399,7 +400,7 @@ and also by the existing per-account lockout.
 ### 7.1 Snapshot
 
 ```json
-{"hostEpoch":1,"cursor":1234,"generatedAt":0,"restaurantName":"…",
+{"hostEpoch":1,"cursor":1234,"generatedAt":0,"restaurantName":"…","kitchenEnabled":true,
  "menu":{"categories":[…],"items":[…]},        // waiter scope
  "tables":[{"tableId","name","capacity","openOrderId","openOrderNo"}],   // waiter
  "orders":[OrderView],                            // open orders (waiter)

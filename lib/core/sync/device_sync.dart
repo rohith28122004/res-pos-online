@@ -369,6 +369,8 @@ class DeviceSync {
         'restaurantName': snap['restaurantName'],
         'generatedAt': snap['generatedAt'],
         'hostEpoch': epoch,
+        // Older POS versions do not send it: they always have a kitchen.
+        'kitchenEnabled': snap['kitchenEnabled'] ?? true,
       });
       if (snap['menu'] != null) await put('menu', 'menu', snap['menu']);
       if (snap['tables'] != null) await put('tables', 'tables', snap['tables']);
@@ -458,7 +460,7 @@ class DeviceSync {
                 fresh.add(payload);
               }
             }
-          case EventType.menuChanged || EventType.tablesChanged:
+          case EventType.menuChanged || EventType.tablesChanged || EventType.settingsChanged:
             refetch = true;
         }
         cursor = seq;

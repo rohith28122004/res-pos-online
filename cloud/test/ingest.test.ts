@@ -260,4 +260,14 @@ describe("GET /v1/device/events", () => {
     expect(res.status).toBe(400);
     await res.arrayBuffer();
   });
+
+  it("passes settings changes (kitchen on/off) to devices", async () => {
+    const r = await newRestaurant();
+    const waiter = await pairDevice(r, "waiter"); // seq 1 (cloud only)
+    const changed = event(r, "settings.changed", "settings", "restaurant", {}); // seq 2
+    await sendEvents(r, [changed]);
+    const { token } = await staffToken(r, waiter);
+    const res = await api("/v1/device/events?epoch=1&after=1", { headers: deviceHeaders(waiter, token) });
+    expect((await json(res)).events).toEqual([changed]);
+  });
 });

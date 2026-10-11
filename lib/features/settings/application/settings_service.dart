@@ -4,6 +4,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../core/money/money.dart';
 import '../../../core/pricing/tax.dart';
+import '../../../core/protocol/protocol.dart';
 import '../../../core/security/permissions.dart';
 import '../../../core/service_context.dart';
 import '../../../core/time/business_time.dart';
@@ -220,6 +221,23 @@ class SettingsService {
       },
     );
   }
+
+  /// Kitchen on/off. Off: no kitchen screen; waiters prepare orders and mark
+  /// them ready. Paired devices are told to reload in the same transaction.
+  Future<void> setKitchenEnabled(Actor actor, {required bool enabled}) => _db.transaction(() async {
+    await _update(
+      actor,
+      'settings.kitchen',
+      RestaurantSettingsCompanion(kitchenEnabled: Value(enabled)),
+      (s) => {'kitchenEnabled': s.kitchenEnabled},
+    );
+    await ctx.outbox.emit(
+      type: EventType.settingsChanged,
+      aggregateType: 'settings',
+      aggregateId: 'restaurant',
+      payload: const {},
+    );
+  });
 
   Future<void> updateBackup(Actor actor, BackupSettingsInput input) async {
     if (input.intervalHours < 1 || input.intervalHours > 24 * 7) {

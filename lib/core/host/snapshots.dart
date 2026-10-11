@@ -36,6 +36,8 @@ class HostReads {
       'cursor': cursor,
       'generatedAt': ctx.nowMs(),
       'restaurantName': settings.name,
+      // false: no kitchen; waiter phones show "To prepare" and mark orders ready.
+      'kitchenEnabled': settings.kitchenEnabled,
       'scope': scope,
     };
     if (scope == 'waiter') {

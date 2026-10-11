@@ -158,12 +158,10 @@ describe("roles and identity binding", () => {
         payload: { status: "preparing" },
       });
 
-    // Waiter: may place orders, may not move kitchen tickets.
+    // Waiter: may place orders, and may send ticket updates (the POS accepts
+    // them only when the café has no kitchen).
     expect((await send(waiterPhone, waiter.token, command(r, waiterPhone, "w1"))).status).toBe(200);
-    expect(await errorOf(await send(waiterPhone, waiter.token, setStatus(waiterPhone, "w1")))).toEqual({
-      status: 403,
-      code: "FORBIDDEN",
-    });
+    expect((await send(waiterPhone, waiter.token, setStatus(waiterPhone, "w1"))).status).toBe(200);
     // Kitchen: the reverse.
     expect((await send(kitchenTablet, kitchen.token, setStatus(kitchenTablet, "k1"))).status).toBe(200);
     expect(await errorOf(await send(kitchenTablet, kitchen.token, command(r, kitchenTablet, "k1")))).toEqual({

@@ -156,6 +156,11 @@ class DeviceService {
   }) async {
     actor.require(Permission.manageDevices);
     if (!DeviceRole.all.contains(role)) throw const ValidationException('Choose waiter or kitchen');
+    if (role == DeviceRole.kitchen && !(await ctx.settings()).kitchenEnabled) {
+      throw const ConflictException(
+        'The kitchen is switched off. Turn it on in Settings before adding a kitchen display.',
+      );
+    }
     final name = requireText(deviceName, 'Device name', max: 40);
     if (addresses.isEmpty) {
       throw const ConflictException('This PC is not connected to a network. Connect it to the café Wi-Fi first.');

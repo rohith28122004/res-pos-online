@@ -51,6 +51,9 @@ class CacheView {
 
   Map<String, Object?>? item(String id) => items.where((i) => i['itemId'] == id).firstOrNull;
 
+  /// False when the café has no kitchen: waiters prepare orders themselves.
+  bool get kitchenEnabled => meta?['kitchenEnabled'] as bool? ?? true;
+
   /// Open order on a table, from the accepted orders the POS sent.
   Map<String, Object?>? openOrderForTable(String tableId) =>
       orders.values.where((o) => o['tableId'] == tableId && o['status'] == 'open').firstOrNull;

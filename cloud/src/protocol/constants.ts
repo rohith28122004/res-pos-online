@@ -52,6 +52,7 @@ export const DEVICE_AUDIENCE_EVENT_TYPES = [
   "ticket.updated",
   "menu.changed",
   "tables.changed",
+  "settings.changed",
 ] as const;
 
 export const RELAY_KINDS = ["sealed_auth", "snapshot", "command_lookup"] as const;

@@ -62,7 +62,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// Bump together with a migration step and a schema dump
   /// (`dart run drift_dev make-migrations`). Never edit an old step.
-  static const int latestSchemaVersion = 4;
+  static const int latestSchemaVersion = 5;
 
   @override
   int get schemaVersion => latestSchemaVersion;
@@ -118,6 +118,10 @@ class AppDatabase extends _$AppDatabase {
       await m.createIndex(schema.hostEventsEventId);
       await m.createIndex(schema.hostEventsCloudPending);
       await m.createTable(schema.syncCheckpoints);
+    },
+    // v5: the café can switch its kitchen off (waiters prepare orders).
+    from4To5: (m, schema) async {
+      await m.addColumn(schema.restaurantSettings, schema.restaurantSettings.kitchenEnabled);
     },
   );
 

@@ -14,7 +14,15 @@ const ALL_ACTIONS: readonly CommandAction[] = [
 const ROLE_ACTIONS: Record<StaffRole, ReadonlySet<CommandAction>> = {
   owner: new Set(ALL_ACTIONS),
   cashier: new Set(ALL_ACTIONS),
-  waiter: new Set<CommandAction>(["order.place", "order.add", "order.change_quantity", "order.send_to_kitchen"]),
+  // ticket.set_status: only when the café has no kitchen (waiters prepare
+  // orders). The POS knows that setting and refuses it otherwise.
+  waiter: new Set<CommandAction>([
+    "order.place",
+    "order.add",
+    "order.change_quantity",
+    "order.send_to_kitchen",
+    "ticket.set_status",
+  ]),
   kitchen: new Set<CommandAction>(["ticket.set_status"]),
 };
 

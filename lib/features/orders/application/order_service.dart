@@ -862,8 +862,15 @@ class OrderService {
     return [for (final t in ts) KitchenTicketView(ticket: t, lines: byTicket[t.id] ?? const [])];
   }
 
+  /// Who may move a ticket: kitchen staff (and cashiers/admins); when the café
+  /// has no kitchen, also the people who take orders, since they prepare them.
+  Future<bool> canUpdateTickets(Actor actor) async {
+    if (actor.can(Permission.kitchenTickets)) return true;
+    return actor.can(Permission.takeOrders) && !(await ctx.settings()).kitchenEnabled;
+  }
+
   Future<void> setTicketStatus(Actor actor, String ticketId, String status) async {
-    actor.require(Permission.kitchenTickets);
+    if (!await canUpdateTickets(actor)) actor.require(Permission.kitchenTickets);
     if (!TicketStatus.all.contains(status)) throw const ValidationException('Unknown ticket status');
     await _db.transaction(() async {
       final t = await (_db.select(_db.kitchenTickets)..where((k) => k.id.equals(ticketId))).getSingleOrNull();

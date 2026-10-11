@@ -866,6 +866,21 @@ class $RestaurantSettingsTable extends RestaurantSettings
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _kitchenEnabledMeta = const VerificationMeta(
+    'kitchenEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> kitchenEnabled = GeneratedColumn<bool>(
+    'kitchen_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("kitchen_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _backupDirectoryMeta = const VerificationMeta(
     'backupDirectory',
   );
@@ -966,6 +981,7 @@ class $RestaurantSettingsTable extends RestaurantSettings
     kotShowPrices,
     autoPrintReceipt,
     autoPrintKot,
+    kitchenEnabled,
     backupDirectory,
     backupIntervalHours,
     backupRetention,
@@ -1153,6 +1169,15 @@ class $RestaurantSettingsTable extends RestaurantSettings
         ),
       );
     }
+    if (data.containsKey('kitchen_enabled')) {
+      context.handle(
+        _kitchenEnabledMeta,
+        kitchenEnabled.isAcceptableOrUnknown(
+          data['kitchen_enabled']!,
+          _kitchenEnabledMeta,
+        ),
+      );
+    }
     if (data.containsKey('backup_directory')) {
       context.handle(
         _backupDirectoryMeta,
@@ -1303,6 +1328,10 @@ class $RestaurantSettingsTable extends RestaurantSettings
         DriftSqlType.bool,
         data['${effectivePrefix}auto_print_kot'],
       )!,
+      kitchenEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}kitchen_enabled'],
+      )!,
       backupDirectory: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}backup_directory'],
@@ -1361,6 +1390,10 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
   final bool kotShowPrices;
   final bool autoPrintReceipt;
   final bool autoPrintKot;
+
+  /// Off when the café has no kitchen: no kitchen screen, and waiters prepare
+  /// and mark orders ready themselves (schema v5).
+  final bool kitchenEnabled;
   final String? backupDirectory;
   final int backupIntervalHours;
   final int backupRetention;
@@ -1389,6 +1422,7 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
     required this.kotShowPrices,
     required this.autoPrintReceipt,
     required this.autoPrintKot,
+    required this.kitchenEnabled,
     this.backupDirectory,
     required this.backupIntervalHours,
     required this.backupRetention,
@@ -1434,6 +1468,7 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
     map['kot_show_prices'] = Variable<bool>(kotShowPrices);
     map['auto_print_receipt'] = Variable<bool>(autoPrintReceipt);
     map['auto_print_kot'] = Variable<bool>(autoPrintKot);
+    map['kitchen_enabled'] = Variable<bool>(kitchenEnabled);
     if (!nullToAbsent || backupDirectory != null) {
       map['backup_directory'] = Variable<String>(backupDirectory);
     }
@@ -1474,6 +1509,7 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
       kotShowPrices: Value(kotShowPrices),
       autoPrintReceipt: Value(autoPrintReceipt),
       autoPrintKot: Value(autoPrintKot),
+      kitchenEnabled: Value(kitchenEnabled),
       backupDirectory: backupDirectory == null && nullToAbsent ? const Value.absent() : Value(backupDirectory),
       backupIntervalHours: Value(backupIntervalHours),
       backupRetention: Value(backupRetention),
@@ -1520,6 +1556,7 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
       kotShowPrices: serializer.fromJson<bool>(json['kotShowPrices']),
       autoPrintReceipt: serializer.fromJson<bool>(json['autoPrintReceipt']),
       autoPrintKot: serializer.fromJson<bool>(json['autoPrintKot']),
+      kitchenEnabled: serializer.fromJson<bool>(json['kitchenEnabled']),
       backupDirectory: serializer.fromJson<String?>(json['backupDirectory']),
       backupIntervalHours: serializer.fromJson<int>(
         json['backupIntervalHours'],
@@ -1561,6 +1598,7 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
       'kotShowPrices': serializer.toJson<bool>(kotShowPrices),
       'autoPrintReceipt': serializer.toJson<bool>(autoPrintReceipt),
       'autoPrintKot': serializer.toJson<bool>(autoPrintKot),
+      'kitchenEnabled': serializer.toJson<bool>(kitchenEnabled),
       'backupDirectory': serializer.toJson<String?>(backupDirectory),
       'backupIntervalHours': serializer.toJson<int>(backupIntervalHours),
       'backupRetention': serializer.toJson<int>(backupRetention),
@@ -1592,6 +1630,7 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
     bool? kotShowPrices,
     bool? autoPrintReceipt,
     bool? autoPrintKot,
+    bool? kitchenEnabled,
     Value<String?> backupDirectory = const Value.absent(),
     int? backupIntervalHours,
     int? backupRetention,
@@ -1624,6 +1663,7 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
     kotShowPrices: kotShowPrices ?? this.kotShowPrices,
     autoPrintReceipt: autoPrintReceipt ?? this.autoPrintReceipt,
     autoPrintKot: autoPrintKot ?? this.autoPrintKot,
+    kitchenEnabled: kitchenEnabled ?? this.kitchenEnabled,
     backupDirectory: backupDirectory.present ? backupDirectory.value : this.backupDirectory,
     backupIntervalHours: backupIntervalHours ?? this.backupIntervalHours,
     backupRetention: backupRetention ?? this.backupRetention,
@@ -1662,6 +1702,7 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
       kotShowPrices: data.kotShowPrices.present ? data.kotShowPrices.value : this.kotShowPrices,
       autoPrintReceipt: data.autoPrintReceipt.present ? data.autoPrintReceipt.value : this.autoPrintReceipt,
       autoPrintKot: data.autoPrintKot.present ? data.autoPrintKot.value : this.autoPrintKot,
+      kitchenEnabled: data.kitchenEnabled.present ? data.kitchenEnabled.value : this.kitchenEnabled,
       backupDirectory: data.backupDirectory.present ? data.backupDirectory.value : this.backupDirectory,
       backupIntervalHours: data.backupIntervalHours.present ? data.backupIntervalHours.value : this.backupIntervalHours,
       backupRetention: data.backupRetention.present ? data.backupRetention.value : this.backupRetention,
@@ -1695,6 +1736,7 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
           ..write('kotShowPrices: $kotShowPrices, ')
           ..write('autoPrintReceipt: $autoPrintReceipt, ')
           ..write('autoPrintKot: $autoPrintKot, ')
+          ..write('kitchenEnabled: $kitchenEnabled, ')
           ..write('backupDirectory: $backupDirectory, ')
           ..write('backupIntervalHours: $backupIntervalHours, ')
           ..write('backupRetention: $backupRetention, ')
@@ -1728,6 +1770,7 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
     kotShowPrices,
     autoPrintReceipt,
     autoPrintKot,
+    kitchenEnabled,
     backupDirectory,
     backupIntervalHours,
     backupRetention,
@@ -1760,6 +1803,7 @@ class RestaurantSettingsRow extends DataClass implements Insertable<RestaurantSe
           other.kotShowPrices == this.kotShowPrices &&
           other.autoPrintReceipt == this.autoPrintReceipt &&
           other.autoPrintKot == this.autoPrintKot &&
+          other.kitchenEnabled == this.kitchenEnabled &&
           other.backupDirectory == this.backupDirectory &&
           other.backupIntervalHours == this.backupIntervalHours &&
           other.backupRetention == this.backupRetention &&
@@ -1790,6 +1834,7 @@ class RestaurantSettingsCompanion extends UpdateCompanion<RestaurantSettingsRow>
   final Value<bool> kotShowPrices;
   final Value<bool> autoPrintReceipt;
   final Value<bool> autoPrintKot;
+  final Value<bool> kitchenEnabled;
   final Value<String?> backupDirectory;
   final Value<int> backupIntervalHours;
   final Value<int> backupRetention;
@@ -1818,6 +1863,7 @@ class RestaurantSettingsCompanion extends UpdateCompanion<RestaurantSettingsRow>
     this.kotShowPrices = const Value.absent(),
     this.autoPrintReceipt = const Value.absent(),
     this.autoPrintKot = const Value.absent(),
+    this.kitchenEnabled = const Value.absent(),
     this.backupDirectory = const Value.absent(),
     this.backupIntervalHours = const Value.absent(),
     this.backupRetention = const Value.absent(),
@@ -1847,6 +1893,7 @@ class RestaurantSettingsCompanion extends UpdateCompanion<RestaurantSettingsRow>
     this.kotShowPrices = const Value.absent(),
     this.autoPrintReceipt = const Value.absent(),
     this.autoPrintKot = const Value.absent(),
+    this.kitchenEnabled = const Value.absent(),
     this.backupDirectory = const Value.absent(),
     this.backupIntervalHours = const Value.absent(),
     this.backupRetention = const Value.absent(),
@@ -1878,6 +1925,7 @@ class RestaurantSettingsCompanion extends UpdateCompanion<RestaurantSettingsRow>
     Expression<bool>? kotShowPrices,
     Expression<bool>? autoPrintReceipt,
     Expression<bool>? autoPrintKot,
+    Expression<bool>? kitchenEnabled,
     Expression<String>? backupDirectory,
     Expression<int>? backupIntervalHours,
     Expression<int>? backupRetention,
@@ -1907,6 +1955,7 @@ class RestaurantSettingsCompanion extends UpdateCompanion<RestaurantSettingsRow>
       if (kotShowPrices != null) 'kot_show_prices': kotShowPrices,
       if (autoPrintReceipt != null) 'auto_print_receipt': autoPrintReceipt,
       if (autoPrintKot != null) 'auto_print_kot': autoPrintKot,
+      if (kitchenEnabled != null) 'kitchen_enabled': kitchenEnabled,
       if (backupDirectory != null) 'backup_directory': backupDirectory,
       if (backupIntervalHours != null) 'backup_interval_hours': backupIntervalHours,
       if (backupRetention != null) 'backup_retention': backupRetention,
@@ -1938,6 +1987,7 @@ class RestaurantSettingsCompanion extends UpdateCompanion<RestaurantSettingsRow>
     Value<bool>? kotShowPrices,
     Value<bool>? autoPrintReceipt,
     Value<bool>? autoPrintKot,
+    Value<bool>? kitchenEnabled,
     Value<String?>? backupDirectory,
     Value<int>? backupIntervalHours,
     Value<int>? backupRetention,
@@ -1967,6 +2017,7 @@ class RestaurantSettingsCompanion extends UpdateCompanion<RestaurantSettingsRow>
       kotShowPrices: kotShowPrices ?? this.kotShowPrices,
       autoPrintReceipt: autoPrintReceipt ?? this.autoPrintReceipt,
       autoPrintKot: autoPrintKot ?? this.autoPrintKot,
+      kitchenEnabled: kitchenEnabled ?? this.kitchenEnabled,
       backupDirectory: backupDirectory ?? this.backupDirectory,
       backupIntervalHours: backupIntervalHours ?? this.backupIntervalHours,
       backupRetention: backupRetention ?? this.backupRetention,
@@ -2048,6 +2099,9 @@ class RestaurantSettingsCompanion extends UpdateCompanion<RestaurantSettingsRow>
     if (autoPrintKot.present) {
       map['auto_print_kot'] = Variable<bool>(autoPrintKot.value);
     }
+    if (kitchenEnabled.present) {
+      map['kitchen_enabled'] = Variable<bool>(kitchenEnabled.value);
+    }
     if (backupDirectory.present) {
       map['backup_directory'] = Variable<String>(backupDirectory.value);
     }
@@ -2095,6 +2149,7 @@ class RestaurantSettingsCompanion extends UpdateCompanion<RestaurantSettingsRow>
           ..write('kotShowPrices: $kotShowPrices, ')
           ..write('autoPrintReceipt: $autoPrintReceipt, ')
           ..write('autoPrintKot: $autoPrintKot, ')
+          ..write('kitchenEnabled: $kitchenEnabled, ')
           ..write('backupDirectory: $backupDirectory, ')
           ..write('backupIntervalHours: $backupIntervalHours, ')
           ..write('backupRetention: $backupRetention, ')
@@ -28639,6 +28694,7 @@ typedef $$RestaurantSettingsTableCreateCompanionBuilder =
       Value<bool> kotShowPrices,
       Value<bool> autoPrintReceipt,
       Value<bool> autoPrintKot,
+      Value<bool> kitchenEnabled,
       Value<String?> backupDirectory,
       Value<int> backupIntervalHours,
       Value<int> backupRetention,
@@ -28669,6 +28725,7 @@ typedef $$RestaurantSettingsTableUpdateCompanionBuilder =
       Value<bool> kotShowPrices,
       Value<bool> autoPrintReceipt,
       Value<bool> autoPrintKot,
+      Value<bool> kitchenEnabled,
       Value<String?> backupDirectory,
       Value<int> backupIntervalHours,
       Value<int> backupRetention,
@@ -28783,6 +28840,11 @@ class $$RestaurantSettingsTableFilterComposer extends Composer<_$AppDatabase, $R
 
   ColumnFilters<bool> get autoPrintKot => $composableBuilder(
     column: $table.autoPrintKot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get kitchenEnabled => $composableBuilder(
+    column: $table.kitchenEnabled,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -28930,6 +28992,11 @@ class $$RestaurantSettingsTableOrderingComposer extends Composer<_$AppDatabase, 
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get kitchenEnabled => $composableBuilder(
+    column: $table.kitchenEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get backupDirectory => $composableBuilder(
     column: $table.backupDirectory,
     builder: (column) => ColumnOrderings(column),
@@ -29059,6 +29126,11 @@ class $$RestaurantSettingsTableAnnotationComposer extends Composer<_$AppDatabase
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get kitchenEnabled => $composableBuilder(
+    column: $table.kitchenEnabled,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get backupDirectory => $composableBuilder(
     column: $table.backupDirectory,
     builder: (column) => column,
@@ -29142,6 +29214,7 @@ class $$RestaurantSettingsTableTableManager
                 Value<bool> kotShowPrices = const Value.absent(),
                 Value<bool> autoPrintReceipt = const Value.absent(),
                 Value<bool> autoPrintKot = const Value.absent(),
+                Value<bool> kitchenEnabled = const Value.absent(),
                 Value<String?> backupDirectory = const Value.absent(),
                 Value<int> backupIntervalHours = const Value.absent(),
                 Value<int> backupRetention = const Value.absent(),
@@ -29170,6 +29243,7 @@ class $$RestaurantSettingsTableTableManager
                 kotShowPrices: kotShowPrices,
                 autoPrintReceipt: autoPrintReceipt,
                 autoPrintKot: autoPrintKot,
+                kitchenEnabled: kitchenEnabled,
                 backupDirectory: backupDirectory,
                 backupIntervalHours: backupIntervalHours,
                 backupRetention: backupRetention,
@@ -29200,6 +29274,7 @@ class $$RestaurantSettingsTableTableManager
                 Value<bool> kotShowPrices = const Value.absent(),
                 Value<bool> autoPrintReceipt = const Value.absent(),
                 Value<bool> autoPrintKot = const Value.absent(),
+                Value<bool> kitchenEnabled = const Value.absent(),
                 Value<String?> backupDirectory = const Value.absent(),
                 Value<int> backupIntervalHours = const Value.absent(),
                 Value<int> backupRetention = const Value.absent(),
@@ -29228,6 +29303,7 @@ class $$RestaurantSettingsTableTableManager
                 kotShowPrices: kotShowPrices,
                 autoPrintReceipt: autoPrintReceipt,
                 autoPrintKot: autoPrintKot,
+                kitchenEnabled: kitchenEnabled,
                 backupDirectory: backupDirectory,
                 backupIntervalHours: backupIntervalHours,
                 backupRetention: backupRetention,

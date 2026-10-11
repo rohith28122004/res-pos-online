@@ -54,6 +54,10 @@ class RestaurantSettings extends Table {
   BoolColumn get kotShowPrices => boolean().withDefault(const Constant(false))();
   BoolColumn get autoPrintReceipt => boolean().withDefault(const Constant(true))();
   BoolColumn get autoPrintKot => boolean().withDefault(const Constant(true))();
+
+  /// Off when the café has no kitchen: no kitchen screen, and waiters prepare
+  /// and mark orders ready themselves (schema v5).
+  BoolColumn get kitchenEnabled => boolean().withDefault(const Constant(true))();
   TextColumn get backupDirectory => text().nullable()();
   IntColumn get backupIntervalHours => integer().withDefault(const Constant(24))();
   IntColumn get backupRetention => integer().withDefault(const Constant(14))();

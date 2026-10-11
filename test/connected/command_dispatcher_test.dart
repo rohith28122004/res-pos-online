@@ -267,6 +267,39 @@ void main() {
     expect(now.status, TicketStatus.ready);
   });
 
+  test('with the kitchen switched off, the waiter marks orders ready; with it on, only the kitchen can', () async {
+    await d.handle(asWaiter(), place());
+    final ticket = await (h.db.select(h.db.kitchenTickets)).getSingle();
+    Map<String, Object?> ready(int revision) => command(
+      h,
+      deviceId: waiterPhone,
+      actor: waiter,
+      action: CommandAction.ticketSetStatus,
+      aggregateId: ticket.id,
+      expectedRevision: revision,
+      payload: {'status': TicketStatus.ready},
+    );
+    // Kitchen on: refused, on the phone and on the POS.
+    expect((await thrown(d.handle(asWaiter(), ready(1)))).code, ErrorCode.forbidden);
+    await expectLater(
+      h.orders.setTicketStatus(waiter, ticket.id, TicketStatus.ready),
+      throwsA(isA<PermissionDeniedException>()),
+    );
+    // Only the admin switches it.
+    await expectLater(
+      h.settings.setKitchenEnabled(h.cashier, enabled: false),
+      throwsA(isA<PermissionDeniedException>()),
+    );
+
+    // Kitchen off: phones are told to reload, and the waiter can mark it ready.
+    final before = (await events(h)).length;
+    await h.settings.setKitchenEnabled(h.owner, enabled: false);
+    expect((await events(h)).skip(before).map((e) => e.type), contains(EventType.settingsChanged));
+    expect((await h.ctx.settings()).kitchenEnabled, isFalse);
+    final done = await d.handle(asWaiter(), ready(1));
+    expect(done.result, {'ticketId': ticket.id, 'status': TicketStatus.ready, 'revision': 2});
+  });
+
   test('roles, devices, identities and epochs are enforced and never stored', () async {
     // A waiter phone cannot change kitchen tickets.
     await d.handle(asWaiter(), place());

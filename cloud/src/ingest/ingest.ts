@@ -15,7 +15,7 @@ import type { HostAuth } from "../auth/credentials";
 import { checkProtocolVersion, isPlainObject } from "../http/body";
 import { ApiError } from "../http/errors";
 import { CanonicalJsonError, canonicalJson, sha256hex } from "../protocol/canonical";
-import { MAX_EVENTS_PER_BATCH } from "../protocol/constants";
+import { DEVICE_AUDIENCE_EVENT_TYPES, MAX_EVENTS_PER_BATCH } from "../protocol/constants";
 import {
   DevicePaired,
   DeviceRevoked,
@@ -64,7 +64,7 @@ interface EpochState {
 
 const MAX_ATTEMPTS = 3;
 
-const DEVICE_AUDIENCE = new Set(["order.updated", "ticket.updated", "menu.changed", "tables.changed"]);
+const DEVICE_AUDIENCE: ReadonlySet<string> = new Set(DEVICE_AUDIENCE_EVENT_TYPES);
 
 async function prepareEvents(body: unknown): Promise<{ hostEpoch: number; events: PreparedEvent[] }> {
   if (!isPlainObject(body)) throw new ApiError("VALIDATION", "Body must be a JSON object");

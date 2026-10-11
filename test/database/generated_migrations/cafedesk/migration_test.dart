@@ -18,6 +18,7 @@ import 'generated/schema.dart';
 import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
 import 'generated/schema_v3.dart' as v3;
+import 'generated/schema_v4.dart' as v4;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -213,6 +214,33 @@ void main() {
     expect(events.single.sequence, 1);
     expect(events.single.revision, 2);
     expect((await db.select(db.kitchenTickets).getSingle()).revision, 2);
+    await db.close();
+  });
+
+  test('v4 → v5 keeps the settings and turns the kitchen on by default', () async {
+    final schema = await verifier.schemaAt(4);
+    final old = v4.DatabaseAtV4(schema.newConnection());
+    const now = 1760000000000;
+    await old.customStatement(
+      "INSERT INTO restaurant_settings (singleton, name, address, currency_code, time_zone, cutoff_minutes, receipt_footer, cashier_discount_limit_bps, service_charge_bps, delivery_charge_default, rounding_unit, lock_timeout_minutes, kot_show_prices, auto_print_receipt, auto_print_kot, backup_interval_hours, backup_retention, setup_completed_at, updated_at, version) "
+      "VALUES (1, 'Old Café', 'Somewhere', 'INR', 'Asia/Kolkata', 240, 'Thanks', 1500, 500, 0, 0, 7, 1, 1, 0, 24, 14, $now, $now, 3)",
+    );
+    await old.close();
+
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 5);
+    final s = await db.select(db.restaurantSettings).getSingle();
+    expect(
+      (s.name, s.cashierDiscountLimitBps, s.lockTimeoutMinutes, s.autoPrintKot, s.version),
+      (
+        'Old Café',
+        1500,
+        7,
+        false,
+        3,
+      ),
+    );
+    expect(s.kitchenEnabled, isTrue, reason: 'existing cafés keep their kitchen');
     await db.close();
   });
 }

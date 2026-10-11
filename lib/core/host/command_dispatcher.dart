@@ -65,13 +65,17 @@ class CommandDispatcher {
     ErrorCode.notFound,
   };
 
-  static bool deviceMayRun(String deviceRole, String action) => switch (action) {
-    CommandAction.ticketSetStatus => deviceRole == DeviceRole.kitchen,
-    _ => deviceRole == DeviceRole.waiter,
-  };
-
-  static Permission permissionFor(String action) =>
-      action == CommandAction.ticketSetStatus ? Permission.kitchenTickets : Permission.takeOrders;
+  /// Waiter phones send orders; kitchen displays move tickets. When the café
+  /// has no kitchen, waiter phones also mark tickets ready (they prepare them).
+  Future<bool> _mayRun(RemoteCaller caller, String action) async {
+    if (action != CommandAction.ticketSetStatus) {
+      return caller.deviceRole == DeviceRole.waiter && caller.actor.can(Permission.takeOrders);
+    }
+    if (caller.deviceRole == DeviceRole.kitchen) return caller.actor.can(Permission.kitchenTickets);
+    return caller.deviceRole == DeviceRole.waiter &&
+        !(await ctx.settings()).kitchenEnabled &&
+        await orders.canUpdateTickets(caller.actor);
+  }
 
   /// Handles [raw] (decoded JSON). Throws [ProtocolException] for failures
   /// that are not business outcomes (auth, version, epoch, id reuse).
@@ -99,7 +103,7 @@ class CommandDispatcher {
         details: {'hostEpoch': identity.hostEpoch},
       );
     }
-    if (!deviceMayRun(caller.deviceRole, command.action) || !caller.actor.can(permissionFor(command.action))) {
+    if (!await _mayRun(caller, command.action)) {
       throw ProtocolException(
         ErrorCode.forbidden,
         '${caller.actor.role.label} accounts on a ${caller.deviceRole} device cannot do this',

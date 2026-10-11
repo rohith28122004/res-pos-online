@@ -341,8 +341,12 @@ abstract final class EventType {
   /// epoch, so the cloud drops report rows of older epochs (§5.4).
   static const hostRestored = 'host.restored';
 
+  /// Restaurant settings that devices show changed (kitchen on/off): devices
+  /// reload the snapshot. Payload `{}`.
+  static const settingsChanged = 'settings.changed';
+
   /// Types sent to paired devices; everything else is cloud-only.
-  static const deviceAudience = {orderUpdated, ticketUpdated, menuChanged, tablesChanged};
+  static const deviceAudience = {orderUpdated, ticketUpdated, menuChanged, tablesChanged, settingsChanged};
 }
 
 abstract final class EventAudience {
