@@ -38,6 +38,12 @@ baseline. Their money, permission, audit, backup and printing guarantees still a
   run) — see BUILD_AND_RELEASE.md. Do not "upgrade Flutter" without re-checking, and never turn
   Smart App Control off. The unsigned Windows build itself cannot be launched on this PC.
 * `scripts/check.ps1` = format check, analyze, all Flutter tests. Cloud: `cd cloud; npm test`.
+* On this PC run Flutter tests through `.\scripts\test-local.ps1 <args>`: Smart App Control
+  blocks the test runner's own `sqlite3.dll`, so the script points tests at Windows' signed
+  `winsqlite3` and always restores `pubspec.yaml`. Never commit that `hooks:` block.
+* No demo café and no built-in accounts (owner decision, 2026-10-11): the first person to set
+  up a till creates the Admin account. User-facing "owner" is "Admin" (`StaffRole.owner`
+  stays in data). Don't bring back seeded sign-ins.
 * After editing `lib/core/database/tables.dart`: `dart run build_runner build`.
 * Schema change = new version: bump `AppDatabase.latestSchemaVersion`, run
   `dart run drift_dev make-migrations`, add a `fromNToM` step, extend the migration test.

@@ -52,6 +52,10 @@ class AppFailed extends AppState {
 }
 
 class AppController extends Notifier<AppState> {
+  /// [paths] replaces the app's data folder (device tests use a temporary one).
+  AppController({AppPaths? paths}) : _given = paths;
+
+  final AppPaths? _given;
   AppPaths? _paths;
   InstanceLock? _lock;
   AppRuntime? _runtime;
@@ -73,31 +77,35 @@ class AppController extends Notifier<AppState> {
 
   Future<void> _start() async {
     try {
-      _paths = await AppPaths.resolve();
+      _paths = _given ?? await AppPaths.resolve();
       _lock = await InstanceLock.acquire(_paths!.lockFile);
       if (_lock == null) {
         state = const AppAlreadyRunning();
         return;
       }
-      if (await _paths!.isDeviceMode()) {
+      // The demo café and its built-in sign-ins were removed: delete its
+      // sample database. Real POS data is in a different file.
+      await _paths!.deleteOldDemo();
+      final mode = await _paths!.readMode();
+      if (mode == 'device') {
         await _openDevice();
         return;
       }
-      final mode = await _paths!.readMode();
-      if (mode == null) {
+      if (mode != 'production') {
+        if (mode != null) await _paths!.clearMode();
         state = const AppChooseMode();
         return;
       }
-      await _open(mode);
+      await _open();
     } on Object catch (e) {
       state = AppFailed(e);
     }
   }
 
-  Future<void> _open(AppMode mode) async {
+  Future<void> _open() async {
     state = const AppLoading();
     try {
-      final rt = await AppRuntime.open(_paths!, mode);
+      final rt = await AppRuntime.open(_paths!);
       _runtime = rt;
       if (await rt.services.setup.isSetupComplete()) {
         await rt.startBackground();
@@ -140,23 +148,16 @@ class AppController extends Notifier<AppState> {
     state = const AppChooseMode();
   }
 
-  Future<void> chooseMode(AppMode mode) async {
-    await _paths!.writeMode(mode);
-    await _open(mode);
+  /// Use this install as the café's main till (POS).
+  Future<void> choosePos() async {
+    await _paths!.writePosMode();
+    await _open();
   }
 
   Future<void> setupCompleted() async {
     final rt = _runtime!;
     await rt.startBackground();
     state = AppReady(rt, ++_generation);
-  }
-
-  Future<void> switchMode(AppMode mode) async {
-    ref.read(sessionProvider.notifier).logout();
-    await _runtime?.dispose();
-    _runtime = null;
-    await _paths!.writeMode(mode);
-    await _open(mode);
   }
 
   /// After a restore the runtime already holds the reopened connection.

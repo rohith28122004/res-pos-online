@@ -33,7 +33,7 @@ class TablesScreen extends ConsumerWidget {
             icon: Icons.table_restaurant_outlined,
             title: 'No tables yet',
             message:
-                'Tables are optional. Owners can add them with "Edit tables". Takeaway and delivery work without tables.',
+                'Tables are optional. Admins can add them with "Edit tables". Takeaway and delivery work without tables.',
             action: editButton,
           );
         }

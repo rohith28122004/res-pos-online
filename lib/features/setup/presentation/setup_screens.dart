@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../../app/providers.dart';
-import '../../../app/runtime.dart';
 import '../../../app/theme.dart';
 import '../../../core/security/password_hasher.dart';
 import '../../../core/time/business_time.dart';
@@ -30,43 +29,96 @@ class WelcomeScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.local_cafe_outlined, size: 56, color: AppColors.accent),
-                const SizedBox(height: 12),
-                Text('Welcome to CaféDesk Online', style: t.headlineMedium, textAlign: TextAlign.center),
-                const SizedBox(height: 8),
+                const Center(
+                  child: CircleAvatar(
+                    radius: 36,
+                    backgroundColor: AppColors.accent,
+                    child: Icon(Icons.local_cafe, color: Colors.white, size: 36),
+                  ),
+                ),
+                const SizedBox(height: 14),
                 Text(
-                  'Billing for cafés with waiter phones and a kitchen screen. The till keeps working without internet.',
-                  style: t.bodyLarge,
+                  'Welcome to CaféDesk Online',
+                  style: t.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  icon: const Icon(Icons.storefront_outlined),
-                  label: const Text('Set up my restaurant'),
-                  onPressed: () => ref.read(appControllerProvider.notifier).chooseMode(AppMode.production),
+                const SizedBox(height: 6),
+                Text('What is this device for?', style: t.titleMedium, textAlign: TextAlign.center),
+                const SizedBox(height: 22),
+                _ChoiceCard(
+                  icon: Icons.point_of_sale,
+                  title: 'Main till (POS)',
+                  text:
+                      'The PC or tablet at the counter: orders, payments, bills and reports. You create the Admin '
+                      'account here.',
+                  action: 'Set up my restaurant',
+                  primary: true,
+                  onTap: () => ref.read(appControllerProvider.notifier).choosePos(),
                 ),
                 const SizedBox(height: 12),
-                FilledButton.tonalIcon(
-                  icon: const Icon(Icons.phonelink_ring_outlined),
-                  label: const Text('Use as a waiter phone or kitchen display'),
-                  onPressed: () => ref.read(appControllerProvider.notifier).chooseDeviceMode(),
+                _ChoiceCard(
+                  icon: Icons.phonelink_ring_outlined,
+                  title: 'Waiter phone or kitchen screen',
+                  text: 'Connects to the main till over the café Wi-Fi. The admin pairs it with a QR code.',
+                  action: 'Connect to the till',
+                  onTap: () => ref.read(appControllerProvider.notifier).chooseDeviceMode(),
                 ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.science_outlined),
-                  label: const Text('Try the demo café'),
-                  onPressed: () => ref.read(appControllerProvider.notifier).chooseMode(AppMode.demo),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'The demo uses a separate sample database. Nothing you do there appears in your real reports.',
-                  style: t.bodySmall,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 const _NoticeCard(icon: Icons.devices_other_outlined, text: separateInstallNotice),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChoiceCard extends StatelessWidget {
+  const _ChoiceCard({
+    required this.icon,
+    required this.title,
+    required this.text,
+    required this.action,
+    required this.onTap,
+    this.primary = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String text;
+  final String action;
+  final VoidCallback onTap;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 32, color: AppColors.accent),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(title, style: t.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(text, style: t.bodyMedium),
+              const SizedBox(height: 14),
+              primary
+                  ? FilledButton(onPressed: onTap, child: Text(action))
+                  : FilledButton.tonal(onPressed: onTap, child: Text(action)),
+            ],
           ),
         ),
       ),
@@ -247,17 +299,17 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                       },
                     ),
                     const SizedBox(height: 24),
-                    Text('Owner account', style: t.titleMedium),
+                    Text('Admin account', style: t.titleMedium),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _ownerName,
-                      decoration: const InputDecoration(labelText: 'Owner name *'),
+                      decoration: const InputDecoration(labelText: 'Admin name *'),
                       validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
                     EmailField(
                       controller: _ownerEmail,
-                      label: 'Owner email *',
+                      label: 'Admin email *',
                       validator: (v) {
                         try {
                           PasswordHasher.normalizeEmail(v ?? '');
@@ -270,7 +322,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                     const SizedBox(height: 12),
                     PasswordField(
                       controller: _password,
-                      label: 'Owner password *',
+                      label: 'Admin password *',
                       helper: 'At least ${PasswordHasher.minPasswordLength} characters',
                       newPassword: true,
                       validator: (v) {
@@ -291,7 +343,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'You sign in with this email and password. Only an owner can create accounts for other staff '
+                      'You sign in with this email and password. Only an admin can create accounts for other staff '
                       '(Staff screen). The email is just a sign-in name on this device: nothing is sent to it and '
                       'nothing goes online. Passwords control who can use the app; they do not encrypt the data, so '
                       'anyone with administrator access to this device could copy the database file.',
@@ -340,12 +392,12 @@ class _RecoveryCodeScreenState extends ConsumerState<_RecoveryCodeScreen> {
               children: [
                 const Icon(Icons.key_outlined, size: 48, color: AppColors.accent),
                 const SizedBox(height: 12),
-                Text('Write down your owner recovery code', style: t.headlineSmall, textAlign: TextAlign.center),
+                Text('Write down your admin recovery code', style: t.headlineSmall, textAlign: TextAlign.center),
                 const SizedBox(height: 12),
                 const Text(
-                  'If you forget the owner password, this code is the only way to reset it on this device. '
+                  'If you forget the admin password, this code is the only way to reset it on this device. '
                   'There is no master password and no online recovery. Keep it somewhere safe and private. It will not be shown again '
-                  '(an owner can create a new one later in Settings).',
+                  '(an admin can create a new one later in Settings).',
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),

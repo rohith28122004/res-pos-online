@@ -33,6 +33,9 @@ CaféDesk Online version on every device, printer models.
 | B6 | Kitchen flow | Tablet: Start → Ready. | POS and waiter phone show the new status; no second alarm. | not run | |
 | B7 | Kitchen reconnect | Turn the tablet's Wi-Fi off and on. | Board comes back; old tickets do not sound again; tickets created meanwhile sound once. | not run | |
 | B8 | Payment stays on the POS | Pay T1 on the POS. | Bill and receipt as usual; the phone shows the order closed and cannot change it. | not run | |
+| B9 | Screens by role | Sign in on the POS as Admin, then Waiter, then Kitchen. | Admin: big-button home. Waiter: Tables / Orders only, no payments, reports or settings. Kitchen: dark New / Cooking / Ready board. | not run | |
+| B10 | No kitchen | Admin: Settings → Kitchen off. Waiter phone sends an order. | Kitchen tile and kitchen display show "switched off"; the phone's **To prepare** tab shows the order; Start → Ready works and the POS shows it ready. Switch the kitchen back on: To prepare disappears. | not run | |
+| B11 | Fresh install | Install on a phone/PC that never had the app. | "What is this device for?"; Main till → setup creates your Admin account; no demo café or built-in password anywhere. | not run | |
 
 ## C. Outages (the important part)
 

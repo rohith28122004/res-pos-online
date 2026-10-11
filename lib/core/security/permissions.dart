@@ -18,7 +18,7 @@ enum StaffRole {
       StaffRole.values.firstWhere((r) => r.name == v, orElse: () => throw ValidationException('Unknown role "$v"'));
 
   String get label => switch (this) {
-    StaffRole.owner => 'Owner',
+    StaffRole.owner => 'Admin',
     StaffRole.cashier => 'Cashier',
     StaffRole.kitchen => 'Kitchen',
     StaffRole.waiter => 'Waiter',

@@ -77,12 +77,12 @@ class SetupService {
     return v;
   }
 
-  Future<SetupResult> completeSetup(SetupInput input, {bool isDemo = false}) async {
+  Future<SetupResult> completeSetup(SetupInput input) async {
     if (await isSetupComplete()) {
       throw const ConflictException('This installation is already set up');
     }
     final name = requireText(input.restaurantName, 'Restaurant name');
-    final ownerName = requireText(input.ownerName, 'Owner name', max: 60);
+    final ownerName = requireText(input.ownerName, 'Admin name', max: 60);
     final ownerEmail = PasswordHasher.normalizeEmail(input.ownerEmail);
     PasswordHasher.validatePassword(input.ownerPassword, email: ownerEmail);
     if (!BusinessCalendar.isValidTimeZone(input.timeZone)) {
@@ -95,7 +95,7 @@ class SetupService {
       throw const ValidationException('Only INR is supported in this version');
     }
     final prefix = (input.receiptPrefix == null || input.receiptPrefix!.trim().isEmpty)
-        ? (isDemo ? 'DEMO' : generateReceiptPrefix())
+        ? generateReceiptPrefix()
         : validateReceiptPrefix(input.receiptPrefix!);
 
     final passwordHash = await hasher.hash(input.ownerPassword);
@@ -111,7 +111,6 @@ class SetupService {
             InstallationCompanion.insert(
               installationId: ctx.ids.newId(),
               receiptPrefix: prefix,
-              isDemo: Value(isDemo),
               createdAt: now,
               createdByAppVersion: AppInfo.version,
             ),
@@ -162,7 +161,7 @@ class SetupService {
         Actor(staffId: ownerId, name: ownerName, role: StaffRole.owner),
         'setup.completed',
         entityType: 'installation',
-        details: {'restaurant': name, 'receiptPrefix': prefix, 'demo': isDemo},
+        details: {'restaurant': name, 'receiptPrefix': prefix},
       );
     });
 

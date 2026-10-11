@@ -30,10 +30,10 @@ class StaffScreen extends ConsumerWidget {
             const Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Everyone signs in with their email and password. Only an owner creates accounts; a new person '
+                'Everyone signs in with their email and password. Only an admin creates accounts; a new person '
                 'chooses their own password the first time they sign in.\n'
-                'Owner: everything. Cashier: orders, payments, bills, reprints, own shift, expenses. '
-                'Kitchen: kitchen tickets only. Keep at least two owners so one can reset the other\'s password.',
+                'Admin: everything. Cashier: orders, payments, bills, reprints, own shift, expenses. '
+                'Kitchen: kitchen tickets only. Keep at least two admins so one can reset the other\'s password.',
               ),
             ),
             for (final s in staff)

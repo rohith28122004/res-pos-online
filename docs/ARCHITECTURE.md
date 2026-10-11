@@ -42,13 +42,17 @@ Backup (lib/core/backup): VACUUM INTO + manifest + checksum; validated restore
 ## Startup (lib/app/providers.dart, runtime.dart)
 
 1. Resolve the app-data directory, take the single-instance lock (`cafedesk.lock`).
-2. Read `mode.json` (production / demo). First run shows the welcome screen.
+2. Delete the old demo café database if present, then read `mode.json` (`production` = main
+   till, `device` = waiter phone / kitchen screen). First run shows "What is this device for?".
 3. Open the mode's database on a background isolate (migrations run here).
 4. If not set up → setup wizard; else start the print queue (recovering interrupted jobs to
    `unknown`) and the backup scheduler (15-minute check + catch-up shortly after launch).
-5. Lock screen → role-based shell. Inactivity locks back to the lock screen.
+5. Lock screen (tap your name, then your password) → role-based home: Admin and cashier get
+   the big-button Admin home, a waiter gets tables / orders (and "To prepare" when the kitchen
+   is off), the kitchen role gets the dark kitchen board. Signing out or the inactivity lock
+   closes every open page.
 
-Restore and mode switches close the runtime's database and rebuild every screen on the new
+Restore closes the runtime's database and rebuilds every screen on the new
 connection (`AppReady.generation`).
 
 ## Folder map

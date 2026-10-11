@@ -120,6 +120,28 @@ external dependency · ⬜ not started
   `CONNECTED_TEST_CHECKLIST.md` (physical checks A–E and pilot steps), README index
 - ⬜ Physical-device run of `CONNECTED_TEST_CHECKLIST.md` (needs the café's PC, phones, Wi-Fi)
 
+### 8. Clearer screens per role, no demo, kitchen on/off (owner request, 2026-10-11)
+- ✅ Owner said admin and waiter screens looked alike and confusing. Chosen with the owner:
+  * **No demo café / built-in accounts.** First launch: "What is this device for?" → Main till
+    (setup wizard creates the restaurant and *your* Admin account) or Waiter phone / kitchen
+    screen. The old demo database is deleted on start; a `demo` mode file is cleared.
+  * **Sign-in:** tap your name, then your password ("Use email instead" still there).
+  * **Admin home** (`lib/features/home/presentation/admin_home.dart`): big buttons — New order,
+    Open orders, Tables, Kitchen, Bills, Shift & cash, Expenses; Manage: Reports, Menu, Staff,
+    Phones & cloud, Settings; a Today card (sales, bills). Cashiers get the same home without
+    the admin-only buttons. User-facing "owner" → "Admin".
+  * **Waiter** (POS sign-in: `waiter_till_home.dart`; phone: `waiter_home.dart`): Tables,
+    Orders, Takeaway; no payments, discounts, reports or settings; "Payment is taken at the
+    till".
+  * **Kitchen** (`kitchen_ui.dart`, shared by the POS and the kitchen phone): dark board,
+    New → Cooking → Ready, wait-time colours, one big button per step.
+  * **Kitchen on/off** (Settings → Kitchen; schema v5 `kitchen_enabled`, default on). Off: no
+    Kitchen tile, kitchen displays say "switched off", kitchen invites refused, waiters get
+    **To prepare** (POS and phone) and mark orders ready; the POS enforces it
+    (`OrderService.canUpdateTickets`, dispatcher check for waiter phones).
+- 🟡 Cloud: waiter `ticket.set_status` + `settings.changed` relay — tested locally, deployed
+  (see run log)
+
 ## Builds and checks (latest run)
 
 | Check | Result |
@@ -233,6 +255,8 @@ external dependency · ⬜ not started
 
 ## Remaining limitations / open items
 
+- Existing installs that used the demo café start at "What is this device for?" after
+  updating; their demo data is deleted (it was sample data only).
 - Phones keep the POS address from pairing; if the PC's IP changes they cannot reach it over
   the Wi-Fi until it is restored (reserve the IP in the router) or the phone is paired again.
   Automatic discovery is a possible follow-up.

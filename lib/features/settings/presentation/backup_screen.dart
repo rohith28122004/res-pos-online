@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/providers.dart';
-import '../../../app/runtime.dart';
 import '../../../app/theme.dart';
 import '../../../core/backup/backup_service.dart';
 import '../../../shared/widgets/common.dart';
@@ -38,7 +37,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         children: [
           SectionCard(
             title: 'Automatic backups',
-            subtitle: rt.mode == AppMode.demo ? 'Automatic backups are off in the demo.' : null,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -323,7 +321,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     final approval = await requestOwnerApproval(
       context,
       ref,
-      purpose: 'Enter the owner password to restore this backup.',
+      purpose: 'Enter the admin password to restore this backup.',
     );
     if (approval == null || !mounted) {
       await services.backupService.discardInspection(insp);

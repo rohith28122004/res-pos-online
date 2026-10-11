@@ -77,6 +77,23 @@ handles it exactly as above and the result travels back. If the POS is offline, 
 waits (shown as *Waiting in the cloud*); it expires after 30 minutes and is never delivered
 late. Sending it over the LAN later returns the stored result — no second order.
 
+### Who sees what (roles) and "no kitchen"
+| Role (shown as) | On the POS | On a phone |
+|---|---|---|
+| Admin (`owner` in data) / Cashier | Big-button home: New order, Open orders, Tables, Kitchen, Bills, Shift & cash, Expenses; Admin also Reports, Menu, Staff, Phones & cloud, Settings | — (phones are for waiters and the kitchen) |
+| Waiter | Tables, Orders, takeaway button; sends orders; payment is taken at the till | Same, plus the Sent list |
+| Kitchen | Dark kitchen board: New → Cooking → Ready | Same board, with sound and keep-awake |
+
+**Kitchen on/off** (Settings → "Kitchen" switch, `restaurant_settings.kitchen_enabled`,
+default on). Switching it changes the setting, writes a `settings.changed` event (phones refetch
+the snapshot, which carries `kitchenEnabled`), and:
+* off → the Kitchen tile and kitchen invites disappear, a kitchen screen shows "The kitchen is
+  switched off", and waiters get a **To prepare** tab where they mark orders Cooking / Ready;
+  "Send to kitchen" reads "Confirm order".
+* The POS decides, not the phone: `OrderService.canUpdateTickets` lets a waiter change a ticket
+  only while the kitchen is off, and the command dispatcher applies the same check to
+  `ticket.set_status` from a waiter phone (the cloud only relays it).
+
 ### Reports in the cloud
 The POS uploads its outbox in order; the cloud acknowledges only after the batch is stored,
 skips identical duplicates and refuses changed content or gaps. Report projections are SQL over

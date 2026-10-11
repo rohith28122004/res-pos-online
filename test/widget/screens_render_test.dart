@@ -78,10 +78,16 @@ void main() {
     );
     await h.orders.sendToKitchen(h.cashier, openOrder, operationId: 'k1');
     final dir = Directory.systemTemp.createTempSync('cafedesk_render');
-    rt = AppRuntime.forTesting(AppPaths(dir, dir), AppMode.production, h.db, h.clock);
+    rt = AppRuntime.forTesting(AppPaths(dir, dir), h.db, h.clock);
   }
 
-  Future<void> pumpScreen(WidgetTester tester, Widget screen, Size size, Actor actor) async {
+  Future<void> pumpScreen(
+    WidgetTester tester,
+    Widget screen,
+    Size size,
+    Actor actor, {
+    void Function(WidgetTester tester)? check,
+  }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     final container = ProviderContainer(
@@ -124,6 +130,7 @@ void main() {
           if ((p.text.style?.color?.computeLuminance() ?? 1) > 0.4) p.text.toPlainText(),
       ];
       expect(faint, isEmpty, reason: 'chip labels too light to read');
+      check?.call(tester);
       // Tear down the tree and the providers (cancelling drift stream queries),
       // then let fake time run so drift's stream-close timers and any in-flight
       // fake-zone queries finish before real-async database access.
@@ -162,14 +169,6 @@ void main() {
   };
 
   for (final size in [phone, desktop]) {
-    testWidgets('demo-mode shell renders at ${size.width.toInt()}', (tester) async {
-      await tester.runAsync(seed);
-      addTearDown(tester.view.reset);
-      final dir = Directory.systemTemp.createTempSync('cafedesk_render_demo');
-      rt = AppRuntime.forTesting(AppPaths(dir, dir), AppMode.demo, h.db, h.clock);
-      await pumpScreen(tester, const AppShell(), size, h.owner);
-      await tester.runAsync(() => h.dispose());
-    }, timeout: const Timeout(Duration(minutes: 2)));
     for (final e in screens.entries) {
       testWidgets('${e.key} renders at ${size.width.toInt()}x${size.height.toInt()}', (tester) async {
         await tester.runAsync(seed);
@@ -181,8 +180,87 @@ void main() {
     testWidgets('kitchen role sees only the kitchen board at ${size.width.toInt()}', (tester) async {
       await tester.runAsync(seed);
       addTearDown(tester.view.reset);
-      await pumpScreen(tester, const AppShell(), size, h.kitchen);
+      await pumpScreen(
+        tester,
+        const AppShell(),
+        size,
+        h.kitchen,
+        check: (tester) {
+          expect(find.textContaining('Cooking'), findsWidgets, reason: 'the kitchen board');
+          expect(find.text('New order'), findsNothing, reason: 'no admin buttons');
+        },
+      );
+      await tester.runAsync(() => h.dispose());
+    }, timeout: const Timeout(Duration(minutes: 2)));
+    testWidgets('waiter role sees only tables and orders at ${size.width.toInt()}', (tester) async {
+      await tester.runAsync(seed);
+      addTearDown(tester.view.reset);
+      final waiter = await tester.runAsync(() => addWaiter(h));
+      await pumpScreen(
+        tester,
+        const AppShell(),
+        size,
+        waiter!,
+        check: (tester) {
+          expect(find.text('Tables'), findsWidgets);
+          expect(find.text('Takeaway order'), findsOneWidget);
+          expect(find.text('Reports'), findsNothing, reason: 'no admin buttons');
+          expect(find.text('To prepare'), findsNothing, reason: 'the kitchen is on');
+        },
+      );
+      await tester.runAsync(() => h.dispose());
+    }, timeout: const Timeout(Duration(minutes: 2)));
+    testWidgets('admin home shows daily work and manage buttons at ${size.width.toInt()}', (tester) async {
+      await tester.runAsync(seed);
+      addTearDown(tester.view.reset);
+      await pumpScreen(
+        tester,
+        const AppShell(),
+        size,
+        h.owner,
+        check: (tester) {
+          for (final label in ['New order', 'Open orders', 'Tables', 'Kitchen', 'Bills']) {
+            expect(find.text(label), findsWidgets, reason: label);
+          }
+          expect(find.text('Daily work'), findsOneWidget);
+          expect(find.text('Manage'), findsOneWidget);
+        },
+      );
+      await tester.runAsync(() => h.dispose());
+    }, timeout: const Timeout(Duration(minutes: 2)));
+    testWidgets('kitchen off: no kitchen button; waiters get "To prepare" at ${size.width.toInt()}', (tester) async {
+      await tester.runAsync(seed);
+      addTearDown(tester.view.reset);
+      final waiter = await tester.runAsync(() async {
+        await h.settings.setKitchenEnabled(h.owner, enabled: false);
+        return addWaiter(h);
+      });
+      await pumpScreen(
+        tester,
+        const AppShell(),
+        size,
+        h.owner,
+        check: (tester) => expect(find.text('Kitchen'), findsNothing),
+      );
+      await pumpScreen(
+        tester,
+        const AppShell(),
+        size,
+        waiter!,
+        check: (tester) => expect(find.text('To prepare'), findsOneWidget),
+      );
       await tester.runAsync(() => h.dispose());
     }, timeout: const Timeout(Duration(minutes: 2)));
   }
+}
+
+Future<Actor> addWaiter(Harness h) async {
+  final id = await h.auth.createStaff(
+    h.owner,
+    name: 'Wendy Waiter',
+    email: 'wendy@test.cafe',
+    role: StaffRole.waiter,
+    password: 'waiter-pass-1',
+  );
+  return Actor(staffId: id, name: 'Wendy Waiter', role: StaffRole.waiter);
 }

@@ -15,16 +15,10 @@ void main() {
     final paths = AppPaths(Directory('root'), Directory('backups'));
     final names = [
       paths.lockFile,
-      paths.databaseFile(AppMode.production),
-      paths.databaseFile(AppMode.demo),
+      paths.databaseFile,
       paths.deviceDatabaseFile,
     ].map((f) => p.basename(f.path)).toList();
-    expect(names, [
-      'cafedesk_online.lock',
-      'cafedesk_online.sqlite',
-      'cafedesk_online_demo.sqlite',
-      'cafedesk_online_device.sqlite',
-    ]);
+    expect(names, ['cafedesk_online.lock', 'cafedesk_online.sqlite', 'cafedesk_online_device.sqlite']);
     for (final offline in ['cafedesk.lock', 'cafedesk.sqlite', 'cafedesk_demo.sqlite']) {
       expect(names, isNot(contains(offline)));
     }

@@ -3,229 +3,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/host/host_connectivity.dart';
 import '../core/security/permissions.dart';
-import '../features/auth/presentation/lock_screen.dart';
 import '../features/auth/presentation/staff_screen.dart';
-import '../features/bills/presentation/bills_screen.dart';
-import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/devices/presentation/connected_devices_screen.dart';
-import '../features/expenses/presentation/expenses_screen.dart';
-import '../features/menu/presentation/menu_admin_screen.dart';
+import '../features/home/presentation/admin_home.dart';
 import '../features/orders/presentation/kitchen_screen.dart';
-import '../features/orders/presentation/sell_screen.dart';
 import '../features/settings/presentation/print_queue_screen.dart';
-import '../features/settings/presentation/settings_screen.dart';
-import '../features/shifts/presentation/shift_screen.dart';
-import '../features/tables/presentation/tables_screen.dart';
+import '../features/waiter/presentation/waiter_till_home.dart';
 import '../shared/widgets/common.dart';
+import '../shared/widgets/people.dart';
 import 'providers.dart';
-import 'runtime.dart';
 import 'theme.dart';
 
-class _Destination {
-  const _Destination(this.label, this.icon, this.selectedIcon, this.builder, this.permission);
-  final String label;
-  final IconData icon;
-  final IconData selectedIcon;
-  final WidgetBuilder builder;
-  final Permission permission;
-}
-
-final _destinations = <_Destination>[
-  _Destination(
-    'Sell',
-    Icons.point_of_sale_outlined,
-    Icons.point_of_sale,
-    (_) => const SellScreen(),
-    Permission.takeOrders,
-  ),
-  _Destination(
-    'Tables',
-    Icons.table_restaurant_outlined,
-    Icons.table_restaurant,
-    (_) => const TablesScreen(),
-    Permission.takeOrders,
-  ),
-  _Destination(
-    'Kitchen',
-    Icons.soup_kitchen_outlined,
-    Icons.soup_kitchen,
-    (_) => const KitchenScreen(),
-    Permission.kitchenTickets,
-  ),
-  _Destination(
-    'Bills',
-    Icons.receipt_long_outlined,
-    Icons.receipt_long,
-    (_) => const BillsScreen(),
-    Permission.viewBills,
-  ),
-  _Destination(
-    'Dashboard',
-    Icons.insights_outlined,
-    Icons.insights,
-    (_) => const DashboardScreen(),
-    Permission.viewReports,
-  ),
-  _Destination(
-    'Shift',
-    Icons.account_balance_wallet_outlined,
-    Icons.account_balance_wallet,
-    (_) => const ShiftScreen(),
-    Permission.ownShift,
-  ),
-  _Destination(
-    'Expenses',
-    Icons.payments_outlined,
-    Icons.payments,
-    (_) => const ExpensesScreen(),
-    Permission.recordExpense,
-  ),
-  _Destination(
-    'Menu',
-    Icons.restaurant_menu_outlined,
-    Icons.restaurant_menu,
-    (_) => const MenuAdminScreen(),
-    Permission.manageMenu,
-  ),
-  _Destination(
-    'Print jobs',
-    Icons.print_outlined,
-    Icons.print,
-    (_) => const PrintQueueScreen(),
-    Permission.viewPrintQueue,
-  ),
-  _Destination('Staff', Icons.badge_outlined, Icons.badge, (_) => const StaffScreen(), Permission.manageStaff),
-  _Destination(
-    'Settings',
-    Icons.settings_outlined,
-    Icons.settings,
-    (_) => const SettingsScreen(),
-    Permission.manageSettings,
-  ),
-];
-
-class AppShell extends ConsumerStatefulWidget {
+/// After sign-in each role gets its own screen: the admin and cashiers a home
+/// page with big buttons, waiters only their tables and orders, kitchen staff
+/// only the kitchen board.
+class AppShell extends ConsumerWidget {
   const AppShell({super.key});
-  @override
-  ConsumerState<AppShell> createState() => _AppShellState();
-}
-
-class _AppShellState extends ConsumerState<AppShell> {
-  int _index = 0;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final actor = ref.watch(sessionProvider)!;
-    final items = _destinations.where((d) => actor.can(d.permission)).toList();
-    if (_index >= items.length) _index = 0;
-    final size = screenSizeOf(context);
-    final isDemo = ref.watch(runtimeProvider).mode == AppMode.demo;
-    final body = KeyedSubtree(key: ValueKey(items[_index].label), child: items[_index].builder(context));
-
-    final appBar = AppBar(
-      title: Text(items[_index].label),
-      actions: [
-        const _ConnectionChip(),
-        const _ShiftChip(),
-        const _PrintStatusButton(),
-        _UserMenu(actor: actor),
-      ],
-    );
-
-    Widget content;
-    if (size == ScreenSize.phone) {
-      final primary = items.take(4).toList();
-      final overflow = items.skip(4).toList();
-      content = Scaffold(
-        appBar: appBar,
-        body: body,
-        bottomNavigationBar: items.length <= 1
-            ? null
-            : NavigationBar(
-                selectedIndex: _index < 4 ? _index : primary.length,
-                onDestinationSelected: (i) async {
-                  if (i < primary.length) {
-                    setState(() => _index = i);
-                  } else {
-                    final picked = await showModalBottomSheet<int>(
-                      context: context,
-                      builder: (c) => SafeArea(
-                        child: ListView(
-                          shrinkWrap: true,
-                          children: [
-                            for (var j = 0; j < overflow.length; j++)
-                              ListTile(
-                                leading: Icon(overflow[j].icon),
-                                title: Text(overflow[j].label),
-                                onTap: () => Navigator.pop(c, j + 4),
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                    if (picked != null) setState(() => _index = picked);
-                  }
-                },
-                destinations: [
-                  for (final d in primary)
-                    NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: d.label),
-                  if (overflow.isNotEmpty) const NavigationDestination(icon: Icon(Icons.more_horiz), label: 'More'),
-                ],
-              ),
-      );
-    } else {
-      content = Scaffold(
-        appBar: appBar,
-        body: Row(
-          children: [
-            if (items.length > 1)
-              SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: MediaQuery.sizeOf(context).height - kToolbarHeight - 24),
-                  child: IntrinsicHeight(
-                    child: NavigationRail(
-                      extended: size == ScreenSize.desktop,
-                      selectedIndex: _index,
-                      labelType: size == ScreenSize.desktop
-                          ? NavigationRailLabelType.none
-                          : NavigationRailLabelType.all,
-                      onDestinationSelected: (i) => setState(() => _index = i),
-                      destinations: [
-                        for (final d in items)
-                          NavigationRailDestination(
-                            icon: Icon(d.icon),
-                            selectedIcon: Icon(d.selectedIcon),
-                            label: Text(d.label),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            if (items.length > 1) const VerticalDivider(width: 1),
-            Expanded(child: body),
-          ],
-        ),
-      );
-    }
-    if (!isDemo) return content;
-    // The banner takes the status-bar inset, so the scaffold below must not
-    // add it again.
-    return Column(
-      children: [
-        const DemoBanner(),
-        Expanded(
-          child: MediaQuery.removePadding(context: context, removeTop: true, child: content),
-        ),
-      ],
-    );
+    return switch (actor.role) {
+      StaffRole.waiter => const WaiterTillHome(menu: UserMenuButton()),
+      StaffRole.kitchen => const KitchenHomePage(menu: UserMenuButton()),
+      StaffRole.owner || StaffRole.cashier => const AdminHome(),
+    };
   }
 }
 
 /// Whether waiter phones and kitchen displays can reach this till, and how
-/// many are connected right now. Owners tap it to manage devices.
-class _ConnectionChip extends ConsumerWidget {
-  const _ConnectionChip();
+/// many are connected right now. The admin taps it to manage devices.
+class ConnectionChip extends ConsumerWidget {
+  const ConnectionChip({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (screenSizeOf(context) == ScreenSize.phone) return const SizedBox.shrink();
@@ -257,8 +66,8 @@ class _ConnectionChip extends ConsumerWidget {
         AppColors.info,
         Icons.phonelink_lock_outlined,
         platformCanHost
-            ? 'Sales are saved on this PC. Waiter phones are not connected; an owner can turn them on in '
-                  'Settings → Connected devices.'
+            ? 'Sales are saved on this PC. Waiter phones are not connected; the admin can turn them on in '
+                  'Phones & cloud.'
             : 'Sales are saved on this device.',
       ),
     };
@@ -281,8 +90,8 @@ class _ConnectionChip extends ConsumerWidget {
   }
 }
 
-class _ShiftChip extends ConsumerWidget {
-  const _ShiftChip();
+class ShiftChip extends ConsumerWidget {
+  const ShiftChip({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shift = ref.watch(currentShiftProvider);
@@ -298,8 +107,8 @@ class _ShiftChip extends ConsumerWidget {
   }
 }
 
-class _PrintStatusButton extends ConsumerWidget {
-  const _PrintStatusButton();
+class PrintStatusButton extends ConsumerWidget {
+  const PrintStatusButton({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final counts = ref.watch(printCountsProvider).value;
@@ -329,26 +138,51 @@ class _PrintStatusButton extends ConsumerWidget {
   }
 }
 
-class _UserMenu extends ConsumerWidget {
-  const _UserMenu({required this.actor});
-  final Actor actor;
+/// The signed-in person: name and role, change password, sign out.
+class UserMenuButton extends ConsumerWidget {
+  const UserMenuButton({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => PopupMenuButton<String>(
-    tooltip: actor.name,
-    icon: const Icon(Icons.account_circle_outlined),
-    onSelected: (v) async {
-      switch (v) {
-        case 'lock':
-          ref.read(sessionProvider.notifier).logout();
-        case 'password':
-          await showChangePasswordDialog(context, ref);
-      }
-    },
-    itemBuilder: (_) => [
-      PopupMenuItem(enabled: false, child: Text('${actor.name} · ${actor.role.label}')),
-      const PopupMenuItem(value: 'password', child: Text('Change my password')),
-      const PopupMenuItem(value: 'lock', child: Text('Lock / switch user')),
-    ],
-  );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actor = ref.watch(sessionProvider);
+    if (actor == null) return const SizedBox.shrink();
+    return PopupMenuButton<String>(
+      tooltip: '${actor.name} · ${actor.role.label}',
+      icon: PersonAvatar(name: actor.name, role: actor.role, radius: 16),
+      onSelected: (v) async {
+        switch (v) {
+          case 'lock':
+            ref.read(sessionProvider.notifier).logout();
+          case 'password':
+            await showChangePasswordDialog(context, ref);
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          enabled: false,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(actor.name),
+            subtitle: Text(actor.role.label),
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'password',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.key_outlined),
+            title: Text('Change my password'),
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'lock',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.logout),
+            title: Text('Sign out'),
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -12,8 +12,15 @@ import 'theme.dart';
 class CafeDeskApp extends ConsumerWidget {
   const CafeDeskApp({super.key});
 
+  static final _navigator = GlobalKey<NavigatorState>();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Signing out (or the inactivity lock) closes every open page, so the
+    // sign-in screen is never hidden under an order or a report.
+    ref.listen(sessionProvider, (before, after) {
+      if (after == null) _navigator.currentState?.popUntil((r) => r.isFirst);
+    });
     final state = ref.watch(appControllerProvider);
     final Widget home = switch (state) {
       AppLoading() => const Scaffold(body: LoadingView(label: 'Opening CaféDesk Online…')),
@@ -27,6 +34,7 @@ class CafeDeskApp extends ConsumerWidget {
       ),
     };
     return MaterialApp(
+      navigatorKey: _navigator,
       title: 'CaféDesk Online',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),

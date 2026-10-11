@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
-import '../../../app/runtime.dart';
 import '../../../app/theme.dart';
 import '../../../core/app_info.dart';
 import '../../../core/database/app_database.dart';
@@ -23,10 +22,11 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final rt = ref.watch(runtimeProvider);
     void open(Widget page) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
     return ListView(
       children: [
+        const _KitchenSwitch(),
+        const Divider(),
         _tile(
           Icons.storefront_outlined,
           'Business details',
@@ -78,40 +78,11 @@ class SettingsScreen extends ConsumerWidget {
         _tile(Icons.history_outlined, 'Audit trail', 'Who did what and when', () => open(const AuditScreen())),
         _tile(
           Icons.key_outlined,
-          'Owner recovery code',
+          'Admin recovery code',
           'Create a new code if the old one is lost',
           () => _recovery(context, ref),
         ),
         const Divider(),
-        if (rt.mode == AppMode.demo)
-          _tile(Icons.logout, 'Leave the demo', 'Switch to your real restaurant data', () async {
-            if (await confirm(
-                  context,
-                  title: 'Leave the demo?',
-                  message: 'The demo data stays in its own file. Your real data was never touched.',
-                ) &&
-                context.mounted) {
-              await ref.read(appControllerProvider.notifier).switchMode(AppMode.production);
-            }
-          })
-        else
-          _tile(
-            Icons.science_outlined,
-            'Open the demo café',
-            'Practise with sample data in a separate database',
-            () async {
-              if (await confirm(
-                    context,
-                    title: 'Open the demo?',
-                    message:
-                        'CaféDesk will switch to a separate sample database. Your restaurant data and reports are not affected. '
-                        'You can come back from Settings in the demo.',
-                  ) &&
-                  context.mounted) {
-                await ref.read(appControllerProvider.notifier).switchMode(AppMode.demo);
-              }
-            },
-          ),
         _tile(
           Icons.info_outline,
           'About and data',
@@ -144,7 +115,7 @@ class SettingsScreen extends ConsumerWidget {
     await showDialog<void>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('New owner recovery code'),
+        title: const Text('New admin recovery code'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -155,6 +126,46 @@ class SettingsScreen extends ConsumerWidget {
         ),
         actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Done'))],
       ),
+    );
+  }
+}
+
+/// Kitchen on/off. Off: no kitchen screen; waiters prepare orders and mark
+/// them ready themselves.
+class _KitchenSwitch extends ConsumerWidget {
+  const _KitchenSwitch();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final on = ref.watch(settingsStreamProvider).value?.kitchenEnabled ?? true;
+    return SwitchListTile(
+      secondary: Icon(on ? Icons.soup_kitchen_outlined : Icons.no_food_outlined),
+      title: const Text('Kitchen'),
+      subtitle: Text(
+        on
+            ? 'On: orders go to the kitchen screen; the kitchen marks them ready.'
+            : 'Off: no kitchen screen. Waiters prepare orders and mark them ready.',
+      ),
+      value: on,
+      onChanged: (v) async {
+        if (!v &&
+            !await confirm(
+              context,
+              title: 'Switch the kitchen off?',
+              message:
+                  'Orders will no longer go to a kitchen screen. Waiters see them under "To prepare" and mark '
+                  'them ready. Kitchen displays stop showing new orders. You can switch it back on any time.',
+              confirmLabel: 'Switch off',
+            )) {
+          return;
+        }
+        if (!context.mounted) return;
+        await guard(
+          context,
+          () => ref.read(servicesProvider).settings.setKitchenEnabled(requireActor(ref), enabled: v),
+          success: v ? 'Kitchen switched on' : 'Kitchen switched off',
+        );
+      },
     );
   }
 }
@@ -440,7 +451,7 @@ class _PricingFormState extends ConsumerState<_PricingForm> {
               decoration: const InputDecoration(
                 labelText: 'Cashier discount limit (%)',
                 suffixText: '%',
-                helperText: 'Bigger discounts need owner approval',
+                helperText: 'Bigger discounts need admin approval',
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
@@ -721,7 +732,7 @@ class AboutScreen extends ConsumerWidget {
           const SectionCard(
             title: 'What passwords protect',
             child: Text(
-              'Email + password accounts control who can use CaféDesk on this device; only an owner creates them. Passwords are stored as salted Argon2id hashes, not in plain text, and the email is only a sign-in name (nothing is sent to it). '
+              'Email + password accounts control who can use CaféDesk on this device; only an admin creates them. Passwords are stored as salted Argon2id hashes, not in plain text, and the email is only a sign-in name (nothing is sent to it). '
               'They do not encrypt the database or backups: someone with administrator access to the device or a backup file '
               'can read the data. Backup files are not encrypted — store copies safely.',
             ),

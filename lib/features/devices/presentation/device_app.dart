@@ -56,7 +56,7 @@ class LinkBanner extends ConsumerWidget {
       LinkStatus(problem: 'wrongCertificate') => (
         AppColors.danger,
         Icons.gpp_bad_outlined,
-        'Something on this network pretends to be the POS. Nothing was sent. Tell the owner.',
+        'Something on this network pretends to be the POS. Nothing was sent. Tell the admin.',
       ),
       LinkStatus(problem: 'updateRequired') => (
         AppColors.danger,
@@ -132,7 +132,7 @@ class DeviceMenuButton extends ConsumerWidget {
               context,
               title: 'Unpair this phone?',
               message:
-                  'Unsent orders on this phone are deleted. The owner can pair it again from the POS '
+                  'Unsent orders on this phone are deleted. The admin can pair it again from the POS '
                   '(Settings → Connected devices).',
               confirmLabel: 'Unpair',
               destructive: true,
@@ -273,7 +273,7 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'On the POS, the owner opens Settings → Connected devices → Pair a phone and chooses waiter or '
+                  'On the POS, the admin opens Settings → Connected devices → Pair a phone and chooses waiter or '
                   'kitchen. Then scan the code it shows (or copy its text here). This phone must be on the café Wi-Fi.',
                   style: t.bodyLarge,
                 ),

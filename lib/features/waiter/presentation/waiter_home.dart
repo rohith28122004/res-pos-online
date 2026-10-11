@@ -6,6 +6,8 @@ import '../../../core/sync/device_sync.dart';
 import '../../../shared/widgets/common.dart';
 import '../../devices/presentation/device_app.dart';
 import '../../devices/presentation/device_providers.dart';
+import '../../kitchen/presentation/kitchen_board_screen.dart';
+import '../../kitchen/presentation/kitchen_ui.dart';
 import 'order_builder.dart';
 import 'order_detail.dart';
 import 'sent_commands.dart';
@@ -23,16 +25,21 @@ class WaiterHomeScreen extends ConsumerWidget {
         .where((c) => c.state == CommandState.rejected || c.state == CommandState.needsReview)
         .length;
     final restaurant = ref.watch(deviceLinkProvider).value?.restaurantName ?? 'Café';
+    final kitchen = (ref.watch(cacheViewProvider).value ?? const CacheView()).kitchenEnabled;
     return DefaultTabController(
-      length: 3,
+      key: ValueKey(kitchen),
+      length: kitchen ? 3 : 4,
       child: Scaffold(
         appBar: AppBar(
           title: Text(restaurant),
           actions: const [DeviceMenuButton()],
           bottom: TabBar(
+            isScrollable: !kitchen,
+            tabAlignment: kitchen ? null : TabAlignment.start,
             tabs: [
               const Tab(text: 'Tables'),
               const Tab(text: 'Orders'),
+              if (!kitchen) const Tab(text: 'To prepare'),
               Tab(
                 child: Badge(
                   isLabelVisible: open + attention > 0,
@@ -51,10 +58,19 @@ class WaiterHomeScreen extends ConsumerWidget {
             MaterialPageRoute<void>(builder: (_) => const OrderBuilderScreen(orderType: 'takeaway')),
           ),
         ),
-        body: const Column(
+        body: Column(
           children: [
-            LinkBanner(),
-            Expanded(child: TabBarView(children: [_TablesTab(), _OrdersTab(), SentCommandsList()])),
+            const LinkBanner(),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  const _TablesTab(),
+                  const _OrdersTab(),
+                  if (!kitchen) const _ToPrepareTab(),
+                  const SentCommandsList(),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -142,6 +158,35 @@ class _TablesTab extends ConsumerWidget {
               );
             },
           ),
+      ],
+    );
+  }
+}
+
+/// No kitchen: the waiter makes what was ordered and marks it ready. The
+/// change is a command the POS confirms, like on a kitchen display.
+class _ToPrepareTab extends ConsumerWidget {
+  const _ToPrepareTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cache = ref.watch(cacheViewProvider).value ?? const CacheView();
+    final commands = ref.watch(myCommandsProvider).value ?? const [];
+    final cards = [for (final t in cache.tickets.values) kitchenCardFromJson(t)]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final todo = cards.where((c) => c.status != KitchenStatus.ready).toList();
+    if (todo.isEmpty) {
+      return const EmptyState(
+        icon: Icons.outdoor_grill_outlined,
+        title: 'Nothing to prepare',
+        message: 'Orders the POS accepts appear here. Make them, then tap Ready.',
+      );
+    }
+    final actions = ticketCommandActions(context, ref, cache, commands);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+      children: [
+        for (final c in todo) KitchenTicketCard(data: c, actions: actions, palette: KitchenPalette.light),
       ],
     );
   }

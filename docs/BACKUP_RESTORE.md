@@ -17,7 +17,7 @@ storage you control. Passwords protect the app, not the files.
 
 * **Manual:** Settings → Backup and restore → Back up now.
 * **Scheduled:** every N hours (default 24) while CaféDesk is open, checked every 15 minutes,
-  plus a catch-up shortly after launch if one is overdue. Not in demo mode.
+  plus a catch-up shortly after launch if one is overdue.
 * **Pre-restore:** automatically, before any restore replaces data.
 * Retention keeps the newest N scheduled backups (default 14); manual and pre-restore backups
   are never deleted automatically.

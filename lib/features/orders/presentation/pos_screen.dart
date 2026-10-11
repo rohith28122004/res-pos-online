@@ -39,8 +39,11 @@ class SaveStatus extends ChangeNotifier {
 }
 
 class PosScreen extends ConsumerStatefulWidget {
-  const PosScreen({super.key, required this.orderId});
+  const PosScreen({super.key, required this.orderId, this.waiter = false});
   final String orderId;
+
+  /// Waiter view: take and send the order; no payment, discounts or charges.
+  final bool waiter;
   @override
   ConsumerState<PosScreen> createState() => _PosScreenState();
 }
@@ -120,7 +123,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           inCart: detail.quantitiesByItem,
           showShortcuts: wide,
         );
-        final cart = CartPanel(detail: detail, save: _save, showShortcuts: wide);
+        final cart = CartPanel(detail: detail, save: _save, showShortcuts: wide, waiter: widget.waiter);
         // Keyboard shortcuts for the Windows till; they work while typing in
         // the menu search too.
         return CallbackShortcuts(
@@ -130,7 +133,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               if (detail.unsentCount > 0 && !_save.saving) unawaited(sendOrderToKitchen(context, ref, detail, _save));
             },
             const SingleActivator(LogicalKeyboardKey.f9, includeRepeats: false): () {
-              if (detail.canPay) unawaited(openCheckout(context, detail));
+              if (detail.canPay && !widget.waiter) unawaited(openCheckout(context, detail));
             },
           },
           child: Scaffold(
@@ -149,7 +152,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 : Column(
                     children: [
                       Expanded(child: menu),
-                      _CartSummaryBar(detail: detail, save: _save),
+                      _CartSummaryBar(detail: detail, save: _save, waiter: widget.waiter),
                     ],
                   ),
           ),
@@ -181,12 +184,21 @@ Future<void> openCheckout(BuildContext context, OrderDetail detail) => Navigator
 
 Future<void> sendOrderToKitchen(BuildContext context, WidgetRef ref, OrderDetail detail, SaveStatus save) async {
   final services = ref.read(servicesProvider);
+  final kitchen = ref.read(settingsStreamProvider).value?.kitchenEnabled ?? true;
   final op = services.ctx.ids.newId();
   final id = await save.run(
     context,
     () => services.orders.sendToKitchen(requireActor(ref), detail.order.id, operationId: op),
   );
-  if (id != null && context.mounted) showInfo(context, 'Sent to kitchen');
+  if (id != null && context.mounted) showInfo(context, kitchen ? 'Sent to kitchen' : 'Order confirmed');
+}
+
+/// "Send to kitchen", or "Confirm order" when the café has no kitchen (the
+/// order still goes on the to-prepare list and to the order printer).
+String sendLabel(WidgetRef ref, int unsent) {
+  final kitchen = ref.watch(settingsStreamProvider).value?.kitchenEnabled ?? true;
+  if (unsent == 0) return kitchen ? 'Kitchen up to date' : 'Order confirmed';
+  return kitchen ? 'Send to kitchen ($unsent)' : 'Confirm order ($unsent)';
 }
 
 class _SaveIndicator extends StatelessWidget {
@@ -217,9 +229,10 @@ class _SaveIndicator extends StatelessWidget {
 }
 
 class _CartSummaryBar extends StatelessWidget {
-  const _CartSummaryBar({required this.detail, required this.save});
+  const _CartSummaryBar({required this.detail, required this.save, required this.waiter});
   final OrderDetail detail;
   final SaveStatus save;
+  final bool waiter;
 
   @override
   Widget build(BuildContext context) {
@@ -249,7 +262,7 @@ class _CartSummaryBar extends StatelessWidget {
                 label: const Text('View cart'),
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => _PhoneCartPage(orderId: detail.order.id, save: save),
+                    builder: (_) => _PhoneCartPage(orderId: detail.order.id, save: save, waiter: waiter),
                   ),
                 ),
               ),
@@ -262,9 +275,10 @@ class _CartSummaryBar extends StatelessWidget {
 }
 
 class _PhoneCartPage extends ConsumerWidget {
-  const _PhoneCartPage({required this.orderId, required this.save});
+  const _PhoneCartPage({required this.orderId, required this.save, required this.waiter});
   final String orderId;
   final SaveStatus save;
+  final bool waiter;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => StreamView<OrderDetail>(
@@ -275,7 +289,7 @@ class _PhoneCartPage extends ConsumerWidget {
         actions: [_SaveIndicator(status: save)],
       ),
       body: detail.order.status == OrderStatus.open
-          ? CartPanel(detail: detail, save: save)
+          ? CartPanel(detail: detail, save: save, waiter: waiter)
           : const EmptyState(icon: Icons.check_circle_outline, title: 'This order is closed'),
     ),
   );
@@ -395,7 +409,7 @@ class _MenuPanelState extends State<MenuPanel> {
                 ? EmptyState(
                     icon: Icons.restaurant_menu_outlined,
                     title: menu.items.isEmpty ? 'The menu is empty' : 'No matching items',
-                    message: menu.items.isEmpty ? 'An owner can add items in Menu, or import a CSV.' : null,
+                    message: menu.items.isEmpty ? 'An admin can add items in Menu, or import a CSV.' : null,
                   )
                 : GridView.builder(
                     padding: const EdgeInsets.all(12),
@@ -624,12 +638,21 @@ class _ItemOptionsSheetState extends State<_ItemOptionsSheet> {
 // ---- Cart ---------------------------------------------------------------------
 
 class CartPanel extends ConsumerWidget {
-  const CartPanel({super.key, required this.detail, required this.save, this.showShortcuts = false});
+  const CartPanel({
+    super.key,
+    required this.detail,
+    required this.save,
+    this.showShortcuts = false,
+    this.waiter = false,
+  });
   final OrderDetail detail;
   final SaveStatus save;
 
   /// Mentions the F8 / F9 keys (keyboard tills).
   final bool showShortcuts;
+
+  /// Waiter view: no payment, discounts, charges or cancelling the order.
+  final bool waiter;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -692,15 +715,17 @@ class CartPanel extends ConsumerWidget {
                     const PopupMenuItem(value: 'guests', child: Text('Guests')),
                   if (order.orderType == OrderType.dineIn.code)
                     const PopupMenuItem(value: 'move', child: Text('Move to another table')),
-                  if (order.orderType == OrderType.delivery.code)
-                    const PopupMenuItem(value: 'delivery', child: Text('Delivery charge')),
-                  if (order.orderType == OrderType.dineIn.code)
-                    PopupMenuItem(
-                      value: 'service',
-                      child: Text(order.serviceChargeBps > 0 ? 'Remove service charge' : 'Add service charge'),
-                    ),
-                  const PopupMenuItem(value: 'discount', child: Text('Bill discount')),
-                  const PopupMenuItem(value: 'cancel', child: Text('Cancel order')),
+                  if (!waiter) ...[
+                    if (order.orderType == OrderType.delivery.code)
+                      const PopupMenuItem(value: 'delivery', child: Text('Delivery charge')),
+                    if (order.orderType == OrderType.dineIn.code)
+                      PopupMenuItem(
+                        value: 'service',
+                        child: Text(order.serviceChargeBps > 0 ? 'Remove service charge' : 'Add service charge'),
+                      ),
+                    const PopupMenuItem(value: 'discount', child: Text('Bill discount')),
+                    const PopupMenuItem(value: 'cancel', child: Text('Cancel order')),
+                  ],
                 ],
               ),
             ],
@@ -783,7 +808,7 @@ class CartPanel extends ConsumerWidget {
                                     itemBuilder: (_) => [
                                       if (!l.lockedByKitchen) const PopupMenuItem(value: 'note', child: Text('Note')),
                                       const PopupMenuItem(value: 'qty', child: Text('Set quantity')),
-                                      const PopupMenuItem(value: 'discount', child: Text('Line discount')),
+                                      if (!waiter) const PopupMenuItem(value: 'discount', child: Text('Line discount')),
                                       const PopupMenuItem(value: 'remove', child: Text('Remove')),
                                     ],
                                   ),
@@ -822,31 +847,46 @@ class CartPanel extends ConsumerWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: _shortcutHint(
-                  'Send new items to the kitchen (F8)',
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.soup_kitchen_outlined),
-                    label: Text(unsent > 0 ? 'Send to kitchen ($unsent)' : 'Kitchen up to date'),
-                    onPressed: unsent == 0 ? null : () => sendOrderToKitchen(context, ref, detail, save),
-                  ),
+          child: waiter
+              // Waiters only send the order; payment is taken at the till.
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                      icon: Icon(unsent > 0 ? Icons.send : Icons.check_circle_outline),
+                      label: Text(sendLabel(ref, unsent)),
+                      onPressed: unsent == 0 ? null : () => sendOrderToKitchen(context, ref, detail, save),
+                    ),
+                    const SizedBox(height: 6),
+                    Text('Payment is taken at the till.', style: t.bodySmall, textAlign: TextAlign.center),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: _shortcutHint(
+                        'Send new items to the kitchen (F8)',
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.soup_kitchen_outlined),
+                          label: Text(sendLabel(ref, unsent)),
+                          onPressed: unsent == 0 ? null : () => sendOrderToKitchen(context, ref, detail, save),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _shortcutHint(
+                        'Take payment (F9)',
+                        FilledButton.icon(
+                          icon: const Icon(Icons.payments_outlined),
+                          label: Text(pricing == null ? 'Pay' : 'Pay ${formatMoney(pricing.total)}'),
+                          onPressed: detail.canPay ? () => openCheckout(context, detail) : null,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _shortcutHint(
-                  'Take payment (F9)',
-                  FilledButton.icon(
-                    icon: const Icon(Icons.payments_outlined),
-                    label: Text(pricing == null ? 'Pay' : 'Pay ${formatMoney(pricing.total)}'),
-                    onPressed: detail.canPay ? () => openCheckout(context, detail) : null,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ],
     );

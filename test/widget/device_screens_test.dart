@@ -35,7 +35,11 @@ void main() {
   const tablet = Size(1280, 800);
   final now = DateTime.utc(2026, 10, 11, 6).millisecondsSinceEpoch;
 
-  Future<(ClientDatabase, DeviceSync)> seededDevice({required String role, bool signedIn = true}) async {
+  Future<(ClientDatabase, DeviceSync)> seededDevice({
+    required String role,
+    bool signedIn = true,
+    bool kitchenEnabled = true,
+  }) async {
     driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
     final db = openInMemoryClientDatabase();
     final sync = DeviceSync(
@@ -82,7 +86,11 @@ void main() {
     Future<void> put(String key, String kind, Object value) => db
         .into(db.cacheEntries)
         .insert(CacheEntriesCompanion.insert(key: key, kind: kind, json: jsonEncode(value), updatedAt: now));
-    await put('meta', 'meta', {'restaurantName': 'The Very Long Named Café and Bakery of Chennai', 'hostEpoch': 1});
+    await put('meta', 'meta', {
+      'restaurantName': 'The Very Long Named Café and Bakery of Chennai',
+      'hostEpoch': 1,
+      'kitchenEnabled': kitchenEnabled,
+    });
     await put('menu', 'menu', {
       'categories': [
         {'categoryId': 'c1', 'name': 'Coffee'},
@@ -261,7 +269,13 @@ void main() {
     return (db, sync);
   }
 
-  Future<void> pump(WidgetTester tester, Widget screen, Size size, List<Override> overrides) async {
+  Future<void> pump(
+    WidgetTester tester,
+    Widget screen,
+    Size size,
+    List<Override> overrides, {
+    Future<void> Function()? check,
+  }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     final container = ProviderContainer(overrides: overrides);
@@ -287,6 +301,7 @@ void main() {
           if (p.text.style?.toString().contains('fallback style') ?? false) p.text.toPlainText(),
       ];
       expect(unstyled, isEmpty, reason: 'text without a Material ancestor');
+      await check?.call();
       await tester.pumpWidget(const SizedBox());
       container.dispose();
       for (var i = 0; i < 10; i++) {
@@ -396,6 +411,51 @@ void main() {
       await tester.runAsync(() => db.close());
     }, timeout: const Timeout(Duration(minutes: 2)));
 
+    testWidgets('kitchen switched off: waiter phone prepares, kitchen screen says so at $label', (tester) async {
+      addTearDown(tester.view.reset);
+      late ClientDatabase db;
+      late DeviceSync sync;
+      await tester.runAsync(() async => (db, sync) = await seededDevice(role: 'waiter', kitchenEnabled: false));
+      final overrides = [deviceRuntimeProvider.overrideWithValue(DeviceRuntime.forTesting(db, sync))];
+      await pump(
+        tester,
+        const WaiterHomeScreen(),
+        size,
+        overrides,
+        check: () async {
+          await tester.tap(find.text('To prepare'));
+          for (var i = 0; i < 4; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          expect(find.text('Start'), findsWidgets, reason: 'new orders can be started');
+          expect(find.text('Ready'), findsWidgets, reason: 'orders being made can be marked ready');
+        },
+      );
+      await pump(
+        tester,
+        const KitchenBoardScreen(),
+        size,
+        overrides,
+        check: () async => expect(find.text('The kitchen is switched off'), findsOneWidget),
+      );
+      await tester.runAsync(() => db.close());
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    testWidgets('waiter phone has no To prepare tab while the kitchen is on at $label', (tester) async {
+      addTearDown(tester.view.reset);
+      late ClientDatabase db;
+      late DeviceSync sync;
+      await tester.runAsync(() async => (db, sync) = await seededDevice(role: 'waiter'));
+      await pump(
+        tester,
+        const WaiterHomeScreen(),
+        size,
+        [deviceRuntimeProvider.overrideWithValue(DeviceRuntime.forTesting(db, sync))],
+        check: () async => expect(find.text('To prepare'), findsNothing),
+      );
+      await tester.runAsync(() => db.close());
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
     testWidgets('pairing screen renders at $label', (tester) async {
       addTearDown(tester.view.reset);
       late ClientDatabase db;
@@ -417,7 +477,7 @@ void main() {
       await tester.runAsync(() async {
         h = await Harness.create();
         final dir = Directory.systemTemp.createTempSync('cafedesk_connected');
-        rt = AppRuntime.forTesting(AppPaths(dir, dir), AppMode.production, h.db, h.clock);
+        rt = AppRuntime.forTesting(AppPaths(dir, dir), h.db, h.clock);
       });
       final container = ProviderContainer(
         overrides: [runtimeProvider.overrideWithValue(rt), servicesProvider.overrideWithValue(rt.services)],

@@ -5,16 +5,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
-import '../../../app/runtime.dart';
 import '../../../app/theme.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../core/security/password_hasher.dart';
 import '../../../core/security/permissions.dart';
 import '../../../shared/widgets/common.dart';
-import '../../setup/application/demo_seed.dart';
+import '../../../shared/widgets/people.dart';
 import '../application/auth_service.dart';
 
-/// Email + password sign-in. Tapping a name fills in that person's email.
+/// Sign in: tap your name, type your password. People who prefer can type
+/// their email instead. There are no built-in accounts: the admin creates
+/// everyone in Staff.
 class LockScreen extends ConsumerStatefulWidget {
   const LockScreen({super.key});
   @override
@@ -22,9 +23,11 @@ class LockScreen extends ConsumerStatefulWidget {
 }
 
 class _LockScreenState extends ConsumerState<LockScreen> {
+  late final Stream<List<StaffSummary>> _staff = ref.read(servicesProvider).auth.watchStaff();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  final _passwordFocus = FocusNode();
+  StaffSummary? _who;
+  bool _useEmail = false;
   String? _error;
   bool _busy = false;
 
@@ -32,14 +35,21 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   void dispose() {
     _email.dispose();
     _password.dispose();
-    _passwordFocus.dispose();
     super.dispose();
   }
 
+  void _pick(StaffSummary? who, {bool useEmail = false}) => setState(() {
+    _who = who;
+    _useEmail = useEmail;
+    _error = null;
+    _password.clear();
+  });
+
   Future<void> _signIn() async {
     if (_busy) return;
-    if (_email.text.trim().isEmpty || _password.text.isEmpty) {
-      setState(() => _error = 'Enter your email and password');
+    final email = _who?.email ?? _email.text;
+    if (email.trim().isEmpty || _password.text.isEmpty) {
+      setState(() => _error = _who == null ? 'Enter your email and password' : 'Enter your password');
       return;
     }
     setState(() {
@@ -47,7 +57,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       _error = null;
     });
     try {
-      final actor = await ref.read(servicesProvider).auth.login(_email.text, _password.text);
+      final actor = await ref.read(servicesProvider).auth.login(email, _password.text);
       ref.read(sessionProvider.notifier).login(actor);
     } on Object catch (e) {
       if (mounted) setState(() => _error = errorText(e));
@@ -61,150 +71,214 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final services = ref.watch(servicesProvider);
     final settings = ref.watch(settingsStreamProvider).value;
-    final isDemo = ref.watch(runtimeProvider).mode == AppMode.demo;
     final t = Theme.of(context).textTheme;
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            if (isDemo) const DemoBanner(),
-            Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: AutofillGroup(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Icon(Icons.lock_outline, size: 40, color: AppColors.accent),
-                          const SizedBox(height: 8),
-                          Text(
-                            settings?.name ?? 'CaféDesk Online',
-                            style: t.headlineSmall,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 4),
-                          Text('Sign in to use the till', style: t.bodyLarge, textAlign: TextAlign.center),
-                          const SizedBox(height: 20),
-                          EmailField(controller: _email),
-                          const SizedBox(height: 12),
-                          PasswordField(
-                            controller: _password,
-                            focusNode: _passwordFocus,
-                            onSubmitted: (_) => _signIn(),
-                          ),
-                          SizedBox(
-                            height: 40,
-                            child: Center(
-                              child: _error == null
-                                  ? null
-                                  : Text(
-                                      _error!,
-                                      style: const TextStyle(color: AppColors.danger),
-                                      textAlign: TextAlign.center,
-                                    ),
-                            ),
-                          ),
-                          FilledButton(
-                            onPressed: _busy ? null : _signIn,
-                            child: _busy
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Text('Sign in'),
-                          ),
-                          const SizedBox(height: 20),
-                          StreamView<List<StaffSummary>>(
-                            stream: services.auth.watchStaff(),
-                            builder: (context, staff) {
-                              final quick = staff.where((s) => s.canSignIn).toList();
-                              if (quick.isEmpty) return const SizedBox.shrink();
-                              return Column(
-                                children: [
-                                  Text('Or tap your name', style: t.bodySmall),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    alignment: WrapAlignment.center,
-                                    children: [
-                                      for (final s in quick)
-                                        ActionChip(
-                                          avatar: Icon(_roleIcon(s.role), size: 18),
-                                          label: Text(s.name),
-                                          tooltip: '${s.role.label} · ${s.email}',
-                                          onPressed: () {
-                                            setState(() {
-                                              _email.text = s.email!;
-                                              _error = null;
-                                            });
-                                            _passwordFocus.requestFocus();
-                                          },
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          if (isDemo)
-                            Text(
-                              'Demo sign-in: ${DemoLogins.ownerEmail}, ${DemoLogins.cashierEmail}, '
-                              '${DemoLogins.waiterEmail} or ${DemoLogins.kitchenEmail} — password ${DemoLogins.password}',
-                              style: t.bodySmall,
-                              textAlign: TextAlign.center,
-                            ),
-                          TextButton(
-                            onPressed: () =>
-                                showDialog<void>(context: context, builder: (_) => const _RecoveryDialog()),
-                            child: const Text('Forgot the owner password?'),
-                          ),
-                        ],
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Center(
+                    child: CircleAvatar(
+                      radius: 34,
+                      backgroundColor: AppColors.accent,
+                      child: Icon(Icons.local_cafe, color: Colors.white, size: 34),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    settings?.name ?? 'CaféDesk Online',
+                    style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Sign in to start',
+                    style: t.bodyLarge?.copyWith(color: AppColors.ink.withValues(alpha: 0.7)),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: AutofillGroup(
+                        child: StreamView<List<StaffSummary>>(
+                          stream: _staff,
+                          builder: (context, staff) {
+                            final people = staff.where((s) => s.canSignIn).toList();
+                            if (_who != null) return _passwordStep(_who!);
+                            if (_useEmail || people.isEmpty) return _emailStep(canGoBack: people.isNotEmpty);
+                            return _pickStep(people);
+                          },
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => showDialog<void>(context: context, builder: (_) => const _RecoveryDialog()),
+                    child: const Text('Forgot the admin password?'),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  static IconData _roleIcon(StaffRole r) => switch (r) {
-    StaffRole.owner => Icons.workspace_premium_outlined,
-    StaffRole.cashier => Icons.point_of_sale_outlined,
-    StaffRole.kitchen => Icons.soup_kitchen_outlined,
-    StaffRole.waiter => Icons.room_service_outlined,
-  };
+  Widget _pickStep(List<StaffSummary> people) {
+    final t = Theme.of(context).textTheme;
+    // The admin first, then cashiers, waiters and kitchen staff.
+    final sorted = [...people]
+      ..sort((a, b) {
+        final byRole = a.role.index.compareTo(b.role.index);
+        return byRole != 0 ? byRole : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Who is signing in?', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text('Tap your name.', style: t.bodySmall),
+        const SizedBox(height: 14),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 150,
+            mainAxisExtent: scaledExtent(context, 128),
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+          ),
+          itemCount: sorted.length,
+          itemBuilder: (context, i) => _PersonTile(person: sorted[i], onTap: () => _pick(sorted[i])),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          icon: const Icon(Icons.alternate_email, size: 18),
+          label: const Text('Use email instead'),
+          onPressed: () => _pick(null, useEmail: true),
+        ),
+      ],
+    );
+  }
+
+  Widget _passwordStep(StaffSummary who) {
+    final t = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            PersonAvatar(name: who.name, role: who.role, radius: 26),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(who.name, style: t.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  RoleBadge(role: who.role),
+                ],
+              ),
+            ),
+            TextButton(onPressed: () => _pick(null), child: const Text('Not you?')),
+          ],
+        ),
+        const SizedBox(height: 18),
+        PasswordField(controller: _password, autofocus: true, onSubmitted: (_) => _signIn()),
+        _errorText(),
+        _signInButton(),
+      ],
+    );
+  }
+
+  Widget _emailStep({required bool canGoBack}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(
+        'Sign in with email',
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 14),
+      EmailField(controller: _email, autofocus: true),
+      const SizedBox(height: 12),
+      PasswordField(controller: _password, onSubmitted: (_) => _signIn()),
+      _errorText(),
+      _signInButton(),
+      if (canGoBack) ...[
+        const SizedBox(height: 8),
+        TextButton.icon(
+          icon: const Icon(Icons.people_outline, size: 18),
+          label: const Text('Choose my name instead'),
+          onPressed: () => _pick(null),
+        ),
+      ],
+    ],
+  );
+
+  Widget _errorText() => SizedBox(
+    height: 40,
+    child: Center(
+      child: _error == null
+          ? null
+          : Text(
+              _error!,
+              style: const TextStyle(color: AppColors.danger),
+              textAlign: TextAlign.center,
+            ),
+    ),
+  );
+
+  Widget _signInButton() => FilledButton(
+    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+    onPressed: _busy ? null : _signIn,
+    child: _busy
+        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+        : const Text('Sign in'),
+  );
 }
 
-class DemoBanner extends StatelessWidget {
-  const DemoBanner({super.key});
+class _PersonTile extends StatelessWidget {
+  const _PersonTile({required this.person, required this.onTap});
+  final StaffSummary person;
+  final VoidCallback onTap;
 
-  /// Has its own Material (it can sit above a Scaffold) and keeps clear of
-  /// the status bar.
   @override
   Widget build(BuildContext context) => Material(
-    color: const Color(0xFFFFE08A),
-    child: SafeArea(
-      bottom: false,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: Text(
-          'DEMO MODE — sample data only. Leave the demo from Settings to use your real restaurant.',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: AppColors.ink),
+    color: AppColors.surface,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(14),
+      side: const BorderSide(color: Color(0xFFE6DED3)),
+    ),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            PersonAvatar(name: person.name, role: person.role),
+            const SizedBox(height: 8),
+            Text(
+              person.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            RoleBadge(role: person.role),
+          ],
         ),
       ),
     ),
@@ -267,7 +341,7 @@ class _PasswordChangeRequiredScreenState extends ConsumerState<PasswordChangeReq
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Hi ${widget.actor.name}. The owner set a starting password for you. '
+                    'Hi ${widget.actor.name}. The admin set a starting password for you. '
                     'Choose your own now — only you should know it.',
                   ),
                   const SizedBox(height: 16),
@@ -387,7 +461,7 @@ class _ApprovalDialogState extends State<_ApprovalDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Owner approval'),
+    title: const Text('Admin approval'),
     content: SingleChildScrollView(
       child: SizedBox(
         width: 340,
@@ -409,7 +483,7 @@ class _ApprovalDialogState extends State<_ApprovalDialog> {
               const SizedBox(height: 8),
               PasswordField(
                 controller: _password,
-                label: 'Owner password',
+                label: 'Admin password',
                 autofocus: true,
                 onSubmitted: (_) => _approve(),
               ),
@@ -480,7 +554,7 @@ class _RecoveryDialogState extends ConsumerState<_RecoveryDialog> {
   Widget build(BuildContext context) {
     if (_newCode != null) {
       return AlertDialog(
-        title: const Text('Owner password reset'),
+        title: const Text('Admin password reset'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -496,7 +570,7 @@ class _RecoveryDialogState extends ConsumerState<_RecoveryDialog> {
       );
     }
     return AlertDialog(
-      title: const Text('Reset owner password'),
+      title: const Text('Reset admin password'),
       content: SizedBox(
         width: 380,
         child: FutureView<List<StaffSummary>>(
@@ -509,14 +583,14 @@ class _RecoveryDialogState extends ConsumerState<_RecoveryDialog> {
                 children: [
                   const Text(
                     'Use the recovery code you wrote down during setup. There is no master password. '
-                    'If the code is lost and no other owner can sign in, restore a backup whose owner password '
+                    'If the code is lost and no other admin can sign in, restore a backup whose admin password '
                     'you know.',
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     isExpanded: true,
                     initialValue: _ownerId,
-                    decoration: const InputDecoration(labelText: 'Owner'),
+                    decoration: const InputDecoration(labelText: 'Admin'),
                     items: [for (final o in owners) DropdownMenuItem(value: o.id, child: Text(o.name))],
                     onChanged: (v) => setState(() {
                       _ownerId = v;
@@ -533,7 +607,7 @@ class _RecoveryDialogState extends ConsumerState<_RecoveryDialog> {
                   const SizedBox(height: 12),
                   EmailField(
                     controller: _email,
-                    label: 'Owner email (for signing in)',
+                    label: 'Admin email (for signing in)',
                     validator: (v) {
                       try {
                         PasswordHasher.normalizeEmail(v ?? '');

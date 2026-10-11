@@ -25,7 +25,7 @@ void main() {
     late Harness h;
     await tester.runAsync(() async => h = await Harness.create());
     final dir = Directory.systemTemp.createTempSync('cafedesk_auth_ui');
-    final rt = AppRuntime.forTesting(AppPaths(dir, dir), AppMode.production, h.db, h.clock);
+    final rt = AppRuntime.forTesting(AppPaths(dir, dir), h.db, h.clock);
     final container = ProviderContainer(
       overrides: [runtimeProvider.overrideWithValue(rt), servicesProvider.overrideWithValue(rt.services)],
     );
@@ -41,11 +41,12 @@ void main() {
 
   testWidgets('lock screen: tap a name, wrong password errors, right password signs in', (tester) async {
     final (h, container) = await boot(tester, const LockScreen());
-    expect(find.text('Sign in to use the till'), findsOneWidget);
+    expect(find.text('Who is signing in?'), findsOneWidget);
+    expect(find.textContaining('demo'), findsNothing, reason: 'no built-in accounts');
 
-    await tester.tap(find.widgetWithText(ActionChip, 'Cara Cashier'));
+    await tester.tap(find.text('Cara Cashier'));
     await _settle(tester);
-    expect(find.text(cashierEmail), findsOneWidget, reason: 'tapping a name fills in the email');
+    expect(find.text('Not you?'), findsOneWidget, reason: "tapping a name asks for that person's password");
 
     await tester.enterText(find.byType(PasswordField), 'wrong-password');
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
@@ -135,7 +136,6 @@ void main() {
     );
 
     final container = ProviderContainer(overrides: [servicesProvider.overrideWithValue(services)]);
-    addTearDown(container.dispose);
     container.read(sessionProvider.notifier).login(h.cashier);
 
     await tester.pumpWidget(
@@ -183,7 +183,7 @@ void main() {
 
     // Tear the UI down and flush its in-flight (fake-zone) queries before any
     // real-async database access, otherwise drift's lock deadlocks the test.
-    await disposeTree(tester);
+    await _teardown(tester, container);
     await tester.runAsync(() async {
       final bills = await h.db.select(h.db.bills).get();
       expect(bills.single.total, 11000);

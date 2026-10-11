@@ -30,14 +30,9 @@ import '../features/orders/application/order_service.dart';
 import '../features/refunds/application/refund_service.dart';
 import '../features/settings/application/printer_service.dart';
 import '../features/settings/application/settings_service.dart';
-import '../features/setup/application/demo_seed.dart';
 import '../features/setup/application/setup_service.dart';
 import '../features/shifts/application/shift_service.dart';
 import '../features/tables/application/table_service.dart';
-
-/// Production and demo data live in separate SQLite files, so demo sales can
-/// never appear in production reports.
-enum AppMode { production, demo }
 
 /// Locations inside the platform's application-data directory. The database
 /// must stay on local storage — never a network share, OneDrive or Dropbox.
@@ -50,8 +45,9 @@ class AppPaths {
   File get modeFile => File(p.join(root.path, 'mode.json'));
   File get lockFile => File(p.join(root.path, 'cafedesk_online.lock'));
   Directory get work => Directory(p.join(root.path, 'work'));
-  File databaseFile(AppMode mode) =>
-      File(p.join(root.path, mode == AppMode.demo ? 'cafedesk_online_demo.sqlite' : 'cafedesk_online.sqlite'));
+
+  /// The POS database (this install is the café's till).
+  File get databaseFile => File(p.join(root.path, 'cafedesk_online.sqlite'));
 
   /// Waiter / kitchen phone data (pairing, drafts, queue, cache).
   File get deviceDatabaseFile => File(p.join(root.path, 'cafedesk_online_device.sqlite'));
@@ -72,31 +68,29 @@ class AppPaths {
     return AppPaths(root, backups);
   }
 
-  Future<AppMode?> readMode() async {
+  /// What this install is: `production` (the POS), `device` (waiter phone or
+  /// kitchen display), `demo` (removed sample café, cleaned up at start) or
+  /// null (not chosen yet).
+  Future<String?> readMode() async {
     try {
       if (!await modeFile.exists()) return null;
       final j = jsonDecode(await modeFile.readAsString()) as Map<String, Object?>;
-      if (j['mode'] == 'device') return null;
-      return j['mode'] == 'demo' ? AppMode.demo : AppMode.production;
+      return j['mode'] as String?;
     } on Object {
       return null;
     }
   }
 
   /// True when this install is a waiter or kitchen device, not a POS.
-  Future<bool> isDeviceMode() async {
-    try {
-      if (!await modeFile.exists()) return false;
-      final j = jsonDecode(await modeFile.readAsString()) as Map<String, Object?>;
-      return j['mode'] == 'device';
-    } on Object {
-      return false;
-    }
-  }
+  Future<bool> isDeviceMode() async => await readMode() == 'device';
 
-  Future<void> writeDeviceMode() async {
-    final tmp = File('.tmp');
-    await tmp.writeAsString(jsonEncode({'mode': 'device'}), flush: true);
+  Future<void> writeDeviceMode() => _writeMode('device');
+
+  Future<void> writePosMode() => _writeMode('production');
+
+  Future<void> _writeMode(String mode) async {
+    final tmp = File('${modeFile.path}.tmp');
+    await tmp.writeAsString(jsonEncode({'mode': mode}), flush: true);
     await tmp.rename(modeFile.path);
   }
 
@@ -104,10 +98,13 @@ class AppPaths {
     if (await modeFile.exists()) await modeFile.delete();
   }
 
-  Future<void> writeMode(AppMode mode) async {
-    final tmp = File('${modeFile.path}.tmp');
-    await tmp.writeAsString(jsonEncode({'mode': mode.name}), flush: true);
-    await tmp.rename(modeFile.path);
+  /// Deletes the sample database of the removed demo café, with its built-in
+  /// sign-ins. The real POS database is never touched.
+  Future<void> deleteOldDemo() async {
+    for (final suffix in ['', '-wal', '-shm', '-journal']) {
+      final f = File(p.join(root.path, 'cafedesk_online_demo.sqlite$suffix'));
+      if (await f.exists()) await f.delete();
+    }
   }
 }
 
@@ -175,13 +172,12 @@ Map<TransportType, PrinterTransport> platformTransports() => {
   if (Platform.isWindows) TransportType.windowsDriver: const WindowsSpoolerTransport(),
 };
 
-/// Owns the open database, the print queue and scheduled backups for one
-/// mode. Restore and mode switches close it and build a fresh one.
+/// Owns the open POS database, the print queue and scheduled backups.
+/// Restore closes it and builds a fresh one.
 class AppRuntime implements DatabaseHost {
-  AppRuntime._(this.paths, this.mode, this._db, this.clock, this.secrets);
+  AppRuntime._(this.paths, this._db, this.clock, this.secrets);
 
   final AppPaths paths;
-  final AppMode mode;
   final Clock clock;
 
   /// OS secure storage for the host's private keys and cloud credential.
@@ -203,33 +199,19 @@ class AppRuntime implements DatabaseHost {
   AppDatabase get database => _db;
 
   @override
-  File get databaseFile => paths.databaseFile(mode);
+  File get databaseFile => paths.databaseFile;
 
   /// Wraps an already-open database (widget tests).
   @visibleForTesting
-  static AppRuntime forTesting(AppPaths paths, AppMode mode, AppDatabase db, Clock clock) =>
-      AppRuntime._(paths, mode, db, clock, MemorySecretStore()).._buildServices();
+  static AppRuntime forTesting(AppPaths paths, AppDatabase db, Clock clock) =>
+      AppRuntime._(paths, db, clock, MemorySecretStore()).._buildServices();
 
-  static Future<AppRuntime> open(
-    AppPaths paths,
-    AppMode mode, {
-    Clock clock = const SystemClock(),
-    SecretStore? secrets,
-  }) async {
-    final file = paths.databaseFile(mode);
-    final db = AppDatabase(openDatabaseFile(file));
+  static Future<AppRuntime> open(AppPaths paths, {Clock clock = const SystemClock(), SecretStore? secrets}) async {
+    final db = AppDatabase(openDatabaseFile(paths.databaseFile));
     // Force open + migrations now so problems surface at startup.
     await db.customSelect('SELECT 1').get();
-    final rt = AppRuntime._(paths, mode, db, clock, secrets ?? SecureSecretStore());
+    final rt = AppRuntime._(paths, db, clock, secrets ?? SecureSecretStore());
     rt._buildServices();
-    if (mode == AppMode.demo) {
-      final seeder = DemoSeeder(rt.services.ctx);
-      if (!await rt.services.setup.isSetupComplete()) {
-        await seeder.seed();
-      } else {
-        await seeder.upgradeLogins();
-      }
-    }
     return rt;
   }
 
@@ -272,7 +254,7 @@ class AppRuntime implements DatabaseHost {
   }
 
   Future<void> runScheduledBackup() async {
-    if (_backupRunning || _databaseClosed || mode == AppMode.demo) return;
+    if (_backupRunning || _databaseClosed) return;
     _backupRunning = true;
     try {
       if (!await services.setup.isSetupComplete()) return;

@@ -44,7 +44,9 @@ private data folder.
   driver-rendered), LAN TCP 9100; durable print queue with honest sent/failed/unknown states
 * Consistent backups (scheduled + manual), validated restore with automatic pre-restore
   backup and rollback
-* Separate demo café database
+* Role-based screens: Admin home with big buttons, a waiter screen (tables, orders, no
+  payments) and a dark kitchen board; the kitchen can be switched off so waiters prepare orders
+* No built-in accounts: the first person to set up the till creates the Admin account
 
 Taxes are **off** until an owner configures them. CaféDesk does not assume your GST
 registration or rates, and its reports are operational, not statutory tax reports.
@@ -61,9 +63,12 @@ dart run build_runner build      # regenerate Drift code after schema changes
 flutter run -d windows           # or: flutter run (Android device)
 ```
 
-Demo: on first launch choose **Try the demo café**. Demo sign-ins are shown on the lock screen
-(owner@demo.test, cashier@demo.test, kitchen@demo.test — password demo1234). The demo uses its own database file; leave it from
-Settings.
+First launch asks what the device is for. **Main till (POS)** opens the setup wizard, where you
+create the restaurant and your own Admin account (email + password). The Admin adds staff on the
+Staff screen. There is no demo café and no built-in password. Earlier test builds had a demo café;
+its sample database is deleted on start.
+
+Tests on this PC: `.\scripts\test-local.ps1` (see `docs/BUILD_AND_RELEASE.md`).
 
 Builds:
 

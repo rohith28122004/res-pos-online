@@ -153,13 +153,25 @@ String _age(Duration d) {
   return '${d.inDays} days';
 }
 
-Future<void> openPos(BuildContext context, String orderId) =>
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => PosScreen(orderId: orderId)));
+Future<void> openPos(BuildContext context, String orderId, {bool waiter = false}) =>
+    Navigator.of(
+      context,
+    ).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PosScreen(orderId: orderId, waiter: waiter),
+      ),
+    );
 
-Future<void> startOrder(BuildContext context, WidgetRef ref, OrderType type, {String? tableId}) async {
+Future<void> startOrder(
+  BuildContext context,
+  WidgetRef ref,
+  OrderType type, {
+  String? tableId,
+  bool waiter = false,
+}) async {
   final services = ref.read(servicesProvider);
   final id = await guard(context, () => services.orders.createOrder(requireActor(ref), type: type, tableId: tableId));
-  if (id != null && context.mounted) await openPos(context, id);
+  if (id != null && context.mounted) await openPos(context, id, waiter: waiter);
 }
 
 Future<void> startDineIn(BuildContext context, WidgetRef ref) async {

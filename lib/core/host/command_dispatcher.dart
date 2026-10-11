@@ -88,7 +88,7 @@ class CommandDispatcher {
     if (identity.reconcileRequired) {
       throw const ProtocolException(
         ErrorCode.epochChanged,
-        'The POS was restored from a backup. The owner must reconnect devices on the POS first.',
+        'The POS was restored from a backup. The admin must reconnect devices on the POS first.',
       );
     }
     if (command.restaurantId != identity.restaurantId ||
@@ -297,7 +297,7 @@ class CommandDispatcher {
     }
     final approval = approvalId == null ? null : approvals.consume(approvalId, caller.deviceId);
     if (approvalId != null && approval == null) {
-      throw const ProtocolException(ErrorCode.approvalRequired, 'The owner approval has expired or was already used');
+      throw const ProtocolException(ErrorCode.approvalRequired, 'The admin approval has expired or was already used');
     }
     final ticketsBefore = await _ticketIdsOf(order.id);
     await orders.changeQuantity(caller.actor, lineId, quantity, reason: reason, approval: approval);

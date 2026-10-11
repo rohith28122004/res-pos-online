@@ -130,7 +130,7 @@ class AuthService {
     if (row == null) throw const ValidationException(_wrongLogin);
     if (row.passwordHash == null && !row.disabled) {
       throw const ValidationException(
-        'This account has no password yet. An owner can set one in Staff; owners can use their recovery code.',
+        'This account has no password yet. An admin can set one in Staff; admins can use their recovery code.',
       );
     }
     await _checkPassword(row, password, wrong: _wrongLogin);
@@ -148,7 +148,7 @@ class AuthService {
   Future<OwnerApproval> approveAsOwner(String ownerId, String password) async {
     final row = await _staff(ownerId);
     if (row.role != StaffRole.owner.name) {
-      throw const PermissionDeniedException('Only an owner can approve this');
+      throw const PermissionDeniedException('Only an admin can approve this');
     }
     await _checkPassword(row, password, wrong: 'Wrong password');
     return OwnerApproval(ownerId: row.id, ownerName: row.name, issuedAt: ctx.now());
@@ -230,7 +230,7 @@ class AuthService {
         final losingOwner =
             before.role == StaffRole.owner.name && !before.disabled && (newRole != StaffRole.owner.name || newDisabled);
         if (losingOwner && (await activeOwners()).length <= 1) {
-          throw const ConflictException('Keep at least one active owner account');
+          throw const ConflictException('Keep at least one active admin account');
         }
         if (newEmail != null) await _ensureEmailFree(newEmail, exceptId: staffId);
         await (_db.update(_db.staff)..where((s) => s.id.equals(staffId))).write(
@@ -359,10 +359,10 @@ class AuthService {
   }) async {
     final owner = await _staff(ownerId);
     if (owner.role != StaffRole.owner.name) {
-      throw const ValidationException('Recovery codes can only reset an owner password');
+      throw const ValidationException('Recovery codes can only reset an admin password');
     }
     final newEmail = (email == null || email.trim().isEmpty) ? owner.email : PasswordHasher.normalizeEmail(email);
-    if (newEmail == null) throw const ValidationException('Enter an email for this owner');
+    if (newEmail == null) throw const ValidationException('Enter an email for this admin');
     PasswordHasher.validatePassword(newPassword, email: newEmail);
     await _ensureEmailFree(newEmail, exceptId: ownerId);
     final now = ctx.nowMs();
@@ -428,7 +428,7 @@ class AuthService {
 
   /// Invalidates existing recovery codes and returns a new one.
   Future<String> regenerateRecoveryCode(Actor actor) async {
-    if (!actor.isOwner) throw const PermissionDeniedException('Only an owner can create a recovery code');
+    if (!actor.isOwner) throw const PermissionDeniedException('Only an admin can create a recovery code');
     final code = PasswordHasher.newRecoveryCode();
     final hash = await hasher.hash(PasswordHasher.normalizeRecoveryCode(code));
     final now = ctx.nowMs();

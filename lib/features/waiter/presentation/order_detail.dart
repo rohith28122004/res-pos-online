@@ -195,7 +195,7 @@ class OrderDetailScreen extends ConsumerWidget {
                 ],
               ),
               if (qty < sent) ...[
-                const Text('The kitchen already has some of these. Cancelling them needs a reason and the owner.'),
+                const Text('The kitchen already has some of these. Cancelling them needs a reason and the admin.'),
                 TextField(
                   controller: reason,
                   decoration: const InputDecoration(labelText: 'Reason'),
@@ -254,15 +254,15 @@ class OrderDetailScreen extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Owner approval'),
+        title: const Text('Admin approval'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('The owner signs here to approve. The password goes only to the POS.'),
+            const Text('The admin signs here to approve. The password goes only to the POS.'),
             const SizedBox(height: 12),
-            EmailField(controller: email, label: 'Owner email'),
+            EmailField(controller: email, label: 'Admin email'),
             const SizedBox(height: 8),
-            PasswordField(controller: password, label: 'Owner password'),
+            PasswordField(controller: password, label: 'Admin password'),
           ],
         ),
         actions: [

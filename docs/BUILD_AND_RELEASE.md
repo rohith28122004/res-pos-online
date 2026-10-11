@@ -63,15 +63,23 @@ with Smart App Control enforcing** and triggers SmartScreen warnings elsewhere. 
 flutter pub get
 dart run build_runner build            # after editing Drift tables
 .\scripts\check.ps1                    # dart format check + flutter analyze + flutter test --no-test-assets
+.\scripts\test-local.ps1 [args]        # flutter test on THIS PC (see below)
 dart run tool/perf_benchmark.dart      # database timings with 1,000 items / 50,000 bills
 .\scripts\build_android.ps1            # release APK into dist\
 .\scripts\build_windows.ps1            # release bundle + zip into dist\
-flutter test integration_test -d windows   # end-to-end demo sale on a device (see note)
+flutter test integration_test -d <device>  # new install → setup → shift → sale (temp folder)
 ```
 
 The integration test needs a runnable app on the target: on this PC the unsigned debug
-`cafedesk.exe` is blocked by Smart App Control, so run it on an Android device or a Windows
-PC without Smart App Control.
+`cafedesk_online.exe` is blocked by Smart App Control, so run it on an Android device or
+emulator, or a Windows PC without Smart App Control. It works in a temporary folder and never
+opens the café data already on the device.
+
+**Tests on this PC (`scripts/test-local.ps1`).** Since 2026-10-11 Smart App Control also blocks
+the unsigned `sqlite3.dll` that the test runner builds. The script temporarily points the
+`sqlite3` package at Windows' own signed `winsqlite3.dll` (a `hooks: user_defines` block in
+`pubspec.yaml`), runs `flutter test` with your arguments and always restores `pubspec.yaml`.
+CI and other PCs use plain `flutter test`.
 
 ## Android signing
 

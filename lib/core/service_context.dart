@@ -70,15 +70,15 @@ class ServiceContext {
   /// Throws unless [approval] is a fresh approval by an enabled owner.
   Future<void> verifyApproval(OwnerApproval? approval, String what) async {
     if (approval == null) {
-      throw ApprovalRequiredException('Owner approval is required to $what.');
+      throw ApprovalRequiredException('Admin approval is required to $what.');
     }
     if (!approval.isFreshAt(now())) {
-      throw ApprovalRequiredException('Owner approval has expired. Ask the owner to approve again to $what.');
+      throw ApprovalRequiredException('Admin approval has expired. Ask the admin to approve again to $what.');
     }
     final owner = await (db.select(db.staff)..where((s) => s.id.equals(approval.ownerId))).getSingleOrNull();
     if (owner == null || owner.disabled || owner.role != StaffRole.owner.name) {
       throw ApprovalRequiredException(
-        'That approval is not from an active owner. Owner approval is required to $what.',
+        'That approval is not from an active admin. Admin approval is required to $what.',
       );
     }
   }

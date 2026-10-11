@@ -65,7 +65,7 @@ class HostApi {
     if (identity.reconcileRequired) {
       throw const ProtocolException(
         ErrorCode.epochChanged,
-        'The POS was restored from a backup. The owner must reconnect devices on the POS first.',
+        'The POS was restored from a backup. The admin must reconnect devices on the POS first.',
       );
     }
     return identity;

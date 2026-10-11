@@ -328,7 +328,7 @@ class _OpenShiftState extends ConsumerState<_OpenShift> {
                 ),
                 if (s.openOrders > 0)
                   Text(
-                    '${s.openOrders} order(s) are still open. Bill or cancel them, or an owner can carry them into the next shift.',
+                    '${s.openOrders} order(s) are still open. Bill or cancel them, or an admin can carry them into the next shift.',
                     style: const TextStyle(color: AppColors.warning),
                   ),
               ],
@@ -352,7 +352,7 @@ class _OpenShiftState extends ConsumerState<_OpenShift> {
         final carry = await confirm(
           context,
           title: 'Carry open orders?',
-          message: 'Close the shift and keep ${s.openOrders} open order(s) for the next shift? This needs an owner.',
+          message: 'Close the shift and keep ${s.openOrders} open order(s) for the next shift? This needs an admin.',
           confirmLabel: 'Carry over',
         );
         if (!carry || !mounted) return;

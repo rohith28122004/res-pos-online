@@ -226,7 +226,7 @@ class ShiftService {
       if (s.openOrders > 0) {
         if (!carryOpenOrders) {
           throw ConflictException(
-            '${s.openOrders} order(s) are still open. Bill or cancel them, or ask an owner to carry them to the next shift.',
+            '${s.openOrders} order(s) are still open. Bill or cancel them, or ask an admin to carry them to the next shift.',
           );
         }
         await ctx.requireOwnerOrApproval(actor, approval, 'close the shift with open orders');
