@@ -110,8 +110,9 @@ external dependency · ⬜ not started
 ### 7. Hardening, builds, runbooks
 - ✅ Spec §12 checks mapped to automated tests (see the run log); added identity separation,
   replay order, phone restart and snapshot/live race tests
-- 🟡 Android APK and Windows bundle with the new identity (see the run log for what this PC
-  could build)
+- 🟡 Builds with the new identity: Windows bundle ✅ (unsigned, not launched here); Android
+  arm64 TEST APK ✅ (profile mode); Android **release** APK ⛔ blocked by Smart App Control on
+  this PC — build it on another machine (run log)
 - ✅ Docs: `CONNECTED_ARCHITECTURE.md`, `PAIRING_AND_SECURITY.md` (keys, pairing, sign-in,
   cloud trust, Windows firewall/sleep/fixed IP, Android Wi-Fi notes),
   `CONNECTED_TEST_CHECKLIST.md` (physical checks A–E and pilot steps), README index
@@ -126,7 +127,7 @@ external dependency · ⬜ not started
 | Flutter tests | see the latest run-log entry |
 | Cloud tests | see the latest run-log entry |
 | Cloud end-to-end (`--dart-define=CAFEDESK_CLOUD_E2E=true test/e2e`, local `wrangler dev`) | 2 passed |
-| Android / Windows builds | not built yet in this repo |
+| Android / Windows builds | Windows zip built (unsigned); Android arm64 TEST APK (profile) built; Android release APK blocked here |
 | Physical devices / printers | not run (none available here) |
 
 ## Run log
@@ -187,9 +188,14 @@ external dependency · ⬜ not started
     (57,553,782 bytes, SHA-256 `5b0ae2a0…7aab13d`, full hash in the `.sha256` file).
     `aapt2 dump badging`: package `com.cafedesk.online`, label "CaféDesk Online", minSdk 24,
     INTERNET + CAMERA (camera not required). arm64 phones only; debug-signed; for testing.
-  * Windows bundle: **not built** — `flutter_secure_storage_windows` needs the Visual Studio
-    "C++ ATL" component (`atlstr.h`), which is not installed here. Waiting for the owner to
-    allow installing it (administrator prompt).
+  * Windows bundle: first attempt failed — `flutter_secure_storage_windows` needs the Visual
+    Studio "C++ ATL" component (`atlstr.h`). With the owner's approval (administrator prompt)
+    `Microsoft.VisualStudio.Component.VC.ATL` was added to Build Tools 2022, then
+    `scripts\build_windows.ps1` built
+    `dist\CafeDeskOnline-1.0.0+1-windows-x64-unsigned.zip` (15,671,800 bytes, SHA-256
+    `7d42c1f6…1964b1c95`). `cafedesk_online.exe` version info: product "CafeDesk Online",
+    company "CafeDesk", file `cafedesk_online.exe`, 1.0.0+1; **not signed**, so it cannot be
+    launched on this PC (Smart App Control) — not run here.
   * Offline repo check (read-only): `C:\Users\rohit\projects\cafedesk` clean at `f65c4bb`,
     origin `res-pos` — untouched.
 
