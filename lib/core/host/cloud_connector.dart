@@ -11,10 +11,77 @@ import '../errors/app_exception.dart';
 import '../protocol/protocol.dart';
 import '../security/permissions.dart';
 import '../security/secret_store.dart';
+import '../service_context.dart';
 import '../sync/host_outbox.dart';
 import 'command_dispatcher.dart';
 import 'host_api.dart';
 import 'host_keys.dart';
+
+/// Puts everything the cloud needs but may never have seen into the outbox:
+/// devices paired before enrollment and the full financial history. Used at
+/// enrollment and when reconnecting after a restore. Safe to repeat (the cloud
+/// upserts by row id).
+Future<void> emitCloudBackfill(ServiceContext ctx) async {
+  final db = ctx.db;
+  final outbox = ctx.outbox;
+  Future<void> each<T>(Future<List<T>> Function() rows, Future<void> Function(T row) emit) async {
+    final list = await rows();
+    for (var i = 0; i < list.length; i += 200) {
+      await db.transaction(() async {
+        for (final r in list.skip(i).take(200)) {
+          await emit(r);
+        }
+      });
+    }
+  }
+
+  await each(() => db.select(db.pairedDevices).get(), (d) async {
+    await outbox.emit(
+      type: EventType.devicePaired,
+      aggregateType: 'device',
+      aggregateId: d.id,
+      payload: {
+        'deviceId': d.id,
+        'role': d.role,
+        'name': d.name,
+        'credentialHash': d.credentialHash,
+        'pairedAt': d.createdAt,
+      },
+    );
+    if (d.revokedAt != null) {
+      await outbox.emit(
+        type: EventType.deviceRevoked,
+        aggregateType: 'device',
+        aggregateId: d.id,
+        payload: {'deviceId': d.id, 'revokedAt': d.revokedAt},
+      );
+    }
+  });
+  await each(
+    () => (db.select(db.shifts)..orderBy([(s) => OrderingTerm(expression: s.openedAt)])).get(),
+    (s) => outbox.changed(Aggregate.shift, s.id),
+  );
+  await each(
+    () => (db.select(db.bills)..orderBy([(b) => OrderingTerm(expression: b.createdAt)])).get(),
+    (b) => outbox.changed(Aggregate.bill, b.id),
+  );
+  await each(
+    () => (db.select(db.refunds)..orderBy([(r) => OrderingTerm(expression: r.createdAt)])).get(),
+    (r) => outbox.changed(Aggregate.refund, r.id),
+  );
+  await each(
+    () => (db.select(db.expenses)..orderBy([(e) => OrderingTerm(expression: e.createdAt)])).get(),
+    (e) => outbox.changed(Aggregate.expense, e.id),
+  );
+  await each(
+    () => (db.select(db.cashMovements)..orderBy([(m) => OrderingTerm(expression: m.createdAt)])).get(),
+    (m) => outbox.changed(Aggregate.cashMovement, m.id),
+  );
+  await each(
+    () => (db.select(db.orders)..where((o) => o.status.equals('cancelled'))).get(),
+    (o) => outbox.changed(Aggregate.order, o.id),
+  );
+}
 
 /// What the POS shows on its Cloud connection screen.
 class CloudStatus {
@@ -162,69 +229,8 @@ class CloudConnector {
     _set(_current.copyWith(enrolled: true, clearError: true));
   }
 
-  /// Puts everything the cloud needs but may never have seen into the outbox:
-  /// devices paired before enrollment and the full financial history. Safe to
-  /// repeat (the cloud upserts by row id).
-  Future<void> backfill() async {
-    final outbox = api.ctx.outbox;
-    Future<void> each<T>(Future<List<T>> Function() rows, Future<void> Function(T row) emit) async {
-      final list = await rows();
-      for (var i = 0; i < list.length; i += 200) {
-        await _db.transaction(() async {
-          for (final r in list.skip(i).take(200)) {
-            await emit(r);
-          }
-        });
-      }
-    }
-
-    await each(() => _db.select(_db.pairedDevices).get(), (d) async {
-      await outbox.emit(
-        type: EventType.devicePaired,
-        aggregateType: 'device',
-        aggregateId: d.id,
-        payload: {
-          'deviceId': d.id,
-          'role': d.role,
-          'name': d.name,
-          'credentialHash': d.credentialHash,
-          'pairedAt': d.createdAt,
-        },
-      );
-      if (d.revokedAt != null) {
-        await outbox.emit(
-          type: EventType.deviceRevoked,
-          aggregateType: 'device',
-          aggregateId: d.id,
-          payload: {'deviceId': d.id, 'revokedAt': d.revokedAt},
-        );
-      }
-    });
-    await each(
-      () => (_db.select(_db.shifts)..orderBy([(s) => OrderingTerm(expression: s.openedAt)])).get(),
-      (s) => outbox.changed(Aggregate.shift, s.id),
-    );
-    await each(
-      () => (_db.select(_db.bills)..orderBy([(b) => OrderingTerm(expression: b.createdAt)])).get(),
-      (b) => outbox.changed(Aggregate.bill, b.id),
-    );
-    await each(
-      () => (_db.select(_db.refunds)..orderBy([(r) => OrderingTerm(expression: r.createdAt)])).get(),
-      (r) => outbox.changed(Aggregate.refund, r.id),
-    );
-    await each(
-      () => (_db.select(_db.expenses)..orderBy([(e) => OrderingTerm(expression: e.createdAt)])).get(),
-      (e) => outbox.changed(Aggregate.expense, e.id),
-    );
-    await each(
-      () => (_db.select(_db.cashMovements)..orderBy([(m) => OrderingTerm(expression: m.createdAt)])).get(),
-      (m) => outbox.changed(Aggregate.cashMovement, m.id),
-    );
-    await each(
-      () => (_db.select(_db.orders)..where((o) => o.status.equals('cancelled'))).get(),
-      (o) => outbox.changed(Aggregate.order, o.id),
-    );
-  }
+  /// Puts everything the cloud needs but may never have seen into the outbox.
+  Future<void> backfill() => emitCloudBackfill(api.ctx);
 
   // ---- Running ------------------------------------------------------------------------
 

@@ -293,8 +293,32 @@ function projectionSql(p: Projection): string {
   ].join("\n");
 }
 
-/** One upsert statement per projection table; parameters ?1..?4 as above. */
-export const PROJECTION_STATEMENTS: readonly string[] = PROJECTIONS.map(projectionSql);
+/**
+ * After a backup restore the host opens a new epoch, re-emits every bill,
+ * refund, expense, cash movement and shift it still has, then appends
+ * `host.restored`. Rows not re-emitted in that epoch belong to history the
+ * restored POS no longer has (sales after the backup was taken), so they leave
+ * the reports. Runs after the upserts of the same range, so every row the
+ * restored POS still has already carries the new epoch.
+ */
+export const RESTORE_EVENT_TYPE = "host.restored";
+
+function restoreBaselineSql(table: string): string {
+  return [
+    `DELETE FROM ${table} WHERE restaurant_id = ?1 AND src_epoch < ?2`,
+    `  AND EXISTS (SELECT 1 FROM events WHERE restaurant_id = ?1 AND host_epoch = ?2`,
+    `              AND sequence BETWEEN ?3 AND ?4 AND type = '${RESTORE_EVENT_TYPE}')`,
+  ].join("\n");
+}
+
+/**
+ * One upsert statement per projection table, then the restore-baseline
+ * deletes; parameters ?1..?4 as above. Order matters: upserts first.
+ */
+export const PROJECTION_STATEMENTS: readonly string[] = [
+  ...PROJECTIONS.map(projectionSql),
+  ...PROJECTIONS.map((p) => restoreBaselineSql(p.table)),
+];
 
 /** Statements that clear one restaurant's projections (?1 restaurant_id). */
 export const CLEAR_PROJECTION_STATEMENTS: readonly string[] = PROJECTION_TABLES.map(

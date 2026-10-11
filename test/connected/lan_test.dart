@@ -402,6 +402,49 @@ void main() {
     expect(await h.count(h.db.orders), 0);
   });
 
+  test('after the POS is restored from a backup, an order saved on a phone before it is held, not sent', () async {
+    final phone = await pairedPhone(
+      DeviceRole.waiter,
+      email: 'wendy.waiter@test.cafe',
+      password: 'password-Wendy Waiter',
+    );
+    await server.stop();
+    final id = await phone.enqueue(
+      action: CommandAction.orderPlace,
+      payload: {
+        'orderType': 'takeaway',
+        'lines': [line(coffee, 4000)],
+        'sendToKitchen': true,
+      },
+      summary: 'Takeaway',
+    );
+    await phone.deliverNow();
+
+    // The restore (database swap aside): new epoch, sessions ended, then the
+    // owner reconnects.
+    await applyRestoredConnections(h.ctx, await ConnectedSnapshot.capture(h.db), h.owner);
+    final identityService = HostIdentityService(h.ctx, hostSecrets);
+    expect((await identityService.current())!.hostEpoch, 2);
+    await identityService.reconnectAfterRestore(h.owner);
+    final keys = await identityService.ensure(h.owner);
+    server = LanServer(HostApi(ctx: h.ctx, keys: keys.$2, dispatcher: CommandDispatcher(h.ctx)));
+    await server.start(port: (await identityService.current())!.lanPort, address: InternetAddress.loopbackIPv4);
+
+    // The phone stays paired; staff sign in again.
+    await phone.signIn('wendy.waiter@test.cafe', 'password-Wendy Waiter');
+    await (phone.db.update(phone.db.pendingCommands)..where((x) => x.commandId.equals(id))).write(
+      const PendingCommandsCompanion(nextAttemptAt: Value(0)),
+    );
+    await phone.deliverNow();
+    final row = await (phone.db.select(phone.db.pendingCommands)..where((x) => x.commandId.equals(id))).getSingle();
+    expect(row.state, CommandState.needsReview, reason: 'made for the POS as it was before the restore');
+    expect(row.errorCode, ErrorCode.epochChanged);
+    expect(await h.count(h.db.orders), 0);
+    // Its sync loop (not running in this test) reloads the POS data.
+    await phone.refresh();
+    expect((await phone.db.select(phone.db.clientLink).getSingle()).hostEpoch, 2);
+  });
+
   test('signing out keeps a person\'s unsent commands for them only', () async {
     final phone = await pairedPhone(
       DeviceRole.waiter,

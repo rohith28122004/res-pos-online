@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { PROJECTION_TABLES } from "../src/projections/sql";
 import { rebuildProjections } from "../src/projections/rebuild";
 import { divRoundHalfUp } from "../src/reports/summary";
-import { api, event, hostHeaders, json, newRestaurant, sendEvents, type Event, type Restaurant } from "./helpers";
+import { api, event, hostHeaders, json, jsonInit, newRestaurant, sendEvents, type Event, type Restaurant } from "./helpers";
 
 // Restaurant time zone Asia/Kolkata (UTC+05:30); epoch ms of a local time.
 const ist = (date: string, time: string) => Date.parse(`${date}T${time}:00+05:30`);
@@ -498,6 +498,63 @@ describe("cloud report fixture (docs/REPORT_DEFINITIONS.md)", () => {
     expect(await snapshot()).toEqual(rowsBefore);
     const after = await Promise.all(ranges.map(([f, t]) => summary(r, f, t)));
     expect(after.map(strip)).toEqual(before.map(strip));
+  });
+
+  it("after a restore, bills the restored POS no longer has leave the reports (also on rebuild)", async () => {
+    const r = await newRestaurant();
+    const line = { ...COFFEE, qty: 1, grossEx: 10000, discountEx: 0, netEx: 10000, tax: 500, total: 10500 };
+    const spec = (no: number) => ({
+      no,
+      businessDate: "2026-10-05",
+      at: ist("2026-10-05", "10:00"),
+      localHour: 10,
+      orderType: "takeaway",
+      lines: [line],
+      payments: [{ method: "upi", applied: 10500 }],
+    });
+    // Epoch 1: bills A and B. The backup was taken after A, before B.
+    const a = billEvent(r, spec(1));
+    const b = billEvent(r, spec(2));
+    await sendEvents(r, [a.event, b.event]);
+    const billIds = async () =>
+      (
+        await env.DB.prepare("SELECT id FROM proj_bills WHERE restaurant_id = ?1 ORDER BY receipt_no")
+          .bind(r.restaurantId)
+          .all<{ id: string }>()
+      ).results.map((row) => row.id);
+    expect(await billIds()).toEqual([a.billId, b.billId]);
+
+    // Restore: epoch 2 re-emits A, a new sale C, then the marker.
+    const start = r.nextSeq;
+    const open = await api("/v1/host/epoch", jsonInit("POST", { epoch: 2, startSequence: start, reason: "restore" }, hostHeaders(r)));
+    expect(open.status).toBe(200);
+    r.epoch = 2;
+    const again = { ...a.event, eventId: crypto.randomUUID(), hostEpoch: 2, sequence: r.nextSeq++ };
+    const c = billEvent(r, spec(3));
+    const marker = event(r, "host.restored", "host", r.hostDeviceId, { epoch: 2, previousEpoch: 1 }, { businessDate: null });
+    // Half of the epoch first: A is back but B stays until the marker arrives.
+    await sendEvents(r, [again]);
+    expect(await billIds()).toEqual([a.billId, b.billId]);
+    await sendEvents(r, [c.event, marker]);
+    expect(await billIds()).toEqual([a.billId, c.billId]);
+    const lines = await env.DB.prepare("SELECT COUNT(*) AS n FROM proj_bill_lines WHERE restaurant_id = ?1")
+      .bind(r.restaurantId)
+      .first<{ n: number }>();
+    expect(lines?.n).toBe(2);
+
+    await rebuildProjections(env.DB, r.restaurantId);
+    expect(await billIds()).toEqual([a.billId, c.billId]);
+    const report = await summary(r, "2026-10-05", "2026-10-06");
+    expect(report.cards.completedBills).toBe(2);
+    expect(report.cards.billsTotal).toBe(21000);
+  });
+
+  it("refuses a restore marker for another epoch", async () => {
+    const r = await newRestaurant();
+    const bad = event(r, "host.restored", "host", r.hostDeviceId, { epoch: 5, previousEpoch: 1 }, { businessDate: null });
+    const res = await api("/v1/host/events", jsonInit("POST", { hostEpoch: r.epoch, events: [bad] }, hostHeaders(r)));
+    expect(res.status).toBe(400);
+    expect((await json(res)).error.code).toBe("VALIDATION");
   });
 
   it("validates the date range", async () => {

@@ -283,6 +283,7 @@ jitter, always with the same command. Every other error is terminal and shown fo
 | `device.revoked` | device | cloud | `{deviceId, revokedAt}` |
 | `session.revoked` | staff_session | cloud | `{sid, staffId, revokedAt}` |
 | `staff.access_changed` | staff | cloud | `{staffId, role, disabled}` |
+| `host.restored` | host | cloud | `{epoch, previousEpoch}` — see §5.4 |
 
 Financial payload rows are the host's database rows serialized with Drift `toJson()` —
 camelCase field names exactly as in `lib/core/database/tables.dart` (for example
@@ -324,8 +325,33 @@ in events.
   the snapshot and the subscription are never lost.
 * If the cursor's epoch is not the host's current epoch, or the host has pruned events after
   it, the stream answers `{"t":"snapshot_required"}`.
-* The host keeps outbox events at least 7 days and never prunes events the cloud has not yet
-  acknowledged.
+* The host keeps outbox events at least 7 days and never prunes events of the current epoch the
+  cloud has not yet acknowledged. Without a cloud connection, events older than 7 days are
+  pruned. Sequence numbers come from a counter that never goes back, so pruning never reuses
+  one.
+
+### 5.4 Restore
+
+Restoring a backup on the POS host (`BackupService.restore` + `applyRestoredConnections`):
+
+1. Financial IDs and number sequences move forward as in the offline app; old print jobs are held.
+2. A new epoch starts: `max(live epoch, backup epoch) + 1`, beginning at the next event sequence.
+   This PC's own host identity and device pairings are kept (a phone removed after the backup
+   stays removed; devices only the backup knew are removed). Every staff session ends; unused
+   pairing codes are cancelled.
+3. `reconcileRequired` is set: the LAN server and the cloud connector stay off. The POS keeps
+   working as a standalone till.
+4. The owner chooses **Reconnect devices** (`reconnectAfterRestore`). With a cloud, the host
+   re-emits every device, shift, bill, refund, expense, cash movement and cancelled order it has,
+   in the new epoch, then `host.restored`. The connector opens the epoch with
+   `POST /host/epoch` (`reason: "restore"`; the cloud quarantines commands queued for older
+   epochs) and uploads.
+5. On `host.restored`, the cloud deletes report rows whose `src_epoch` is older than the event's
+   epoch — history the restored POS no longer has (for example sales after the backup was taken).
+   It runs after the upserts of the same batch, and again on any projection rebuild, so the
+   result is the same either way. The event ledger itself is never changed.
+6. Phones see the new epoch, reload a snapshot and hold commands made for the old epoch for review
+   (`EPOCH_CHANGED`); nothing queued before the restore is sent automatically.
 
 ## 6. Sealed requests (passwords)
 

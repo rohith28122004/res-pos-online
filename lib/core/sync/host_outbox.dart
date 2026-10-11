@@ -218,6 +218,27 @@ class HostOutbox {
 
   /// Highest event sequence written so far (0 when none).
   Future<int> latestSequence() async => (await _db.peekSequenceValue('event')) - 1;
+
+  /// How long events stay after they are no longer needed. Phones that were
+  /// away longer reload a snapshot instead of replaying.
+  static const keep = Duration(days: 7);
+
+  /// Deletes events older than [keep] that nothing still needs. With a cloud
+  /// connected, an event of the current epoch stays until the cloud has
+  /// acknowledged it; older epochs were replaced by the restore re-send.
+  /// Sequence numbers come from a counter, so they are never reused.
+  Future<int> prune() async {
+    final cutoff = ctx.nowMs() - keep.inMilliseconds;
+    final identity = await _db.select(_db.hostIdentity).getSingleOrNull();
+    final epoch = identity?.hostEpoch ?? 1;
+    final cloud = identity?.cloudUrl != null;
+    return (_db.delete(_db.hostEvents)..where(
+          (e) =>
+              e.committedAt.isSmallerThanValue(cutoff) &
+              (cloud ? e.cloudAckedAt.isNotNull() | e.hostEpoch.isSmallerThanValue(epoch) : const Constant(true)),
+        ))
+        .go();
+  }
 }
 
 /// Builds the device-facing views and the cloud payloads from database rows.

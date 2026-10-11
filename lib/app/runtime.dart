@@ -193,6 +193,7 @@ class AppRuntime implements DatabaseHost {
   late HostConnectivity host;
   PrintQueue? _queue;
   Timer? _backupTimer;
+  Timer? _pruneTimer;
   bool _backupRunning = false;
 
   /// Last scheduled-backup problem, shown in Settings (null = fine).
@@ -255,7 +256,19 @@ class AppRuntime implements DatabaseHost {
     _backupTimer ??= Timer.periodic(const Duration(minutes: 15), (_) => unawaited(runScheduledBackup()));
     // Catch-up backup shortly after launch.
     unawaited(Future<void>.delayed(const Duration(seconds: 20), runScheduledBackup));
+    _pruneTimer ??= Timer.periodic(const Duration(hours: 6), (_) => unawaited(pruneOutbox()));
+    unawaited(Future<void>.delayed(const Duration(minutes: 1), pruneOutbox));
     await host.start();
+  }
+
+  /// Drops device/cloud events nothing needs any more (HostOutbox.prune).
+  Future<void> pruneOutbox() async {
+    if (_databaseClosed) return;
+    try {
+      await services.ctx.outbox.prune();
+    } on Object {
+      // Pruning is housekeeping; it is retried on the next run.
+    }
   }
 
   Future<void> runScheduledBackup() async {
@@ -300,6 +313,8 @@ class AppRuntime implements DatabaseHost {
   Future<void> dispose() async {
     _backupTimer?.cancel();
     _backupTimer = null;
+    _pruneTimer?.cancel();
+    _pruneTimer = null;
     await host.dispose();
     await _queue?.stop();
     _queue = null;

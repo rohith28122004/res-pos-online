@@ -13,43 +13,11 @@ import 'package:cafedesk/features/bills/domain/payment_method.dart';
 import 'package:cafedesk/features/orders/application/order_service.dart';
 import 'package:cafedesk/features/orders/domain/order_models.dart';
 import 'package:cafedesk/features/settings/application/printer_service.dart';
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
+import '../support/file_host.dart';
 import '../support/harness.dart';
-
-class FileHost implements DatabaseHost {
-  FileHost(this.databaseFile) : _db = _open(databaseFile);
-  @override
-  final File databaseFile;
-  AppDatabase? _db;
-  bool failNextOpen = false;
-
-  static AppDatabase _open(File f) => AppDatabase(NativeDatabase(f, setup: configureConnection));
-
-  @override
-  AppDatabase get database => _db!;
-
-  @override
-  Future<void> closeDatabase() async {
-    await _db?.close();
-    _db = null;
-  }
-
-  @override
-  Future<AppDatabase> reopenDatabase() async {
-    final db = _open(databaseFile);
-    if (failNextOpen) {
-      failNextOpen = false;
-      await db.close();
-      throw StateError('simulated failure while opening');
-    }
-    _db = db;
-    await db.select(db.restaurantSettings).get();
-    return db;
-  }
-}
 
 void main() {
   late Directory tmp;

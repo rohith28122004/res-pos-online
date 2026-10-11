@@ -337,6 +337,10 @@ abstract final class EventType {
   static const sessionRevoked = 'session.revoked';
   static const staffAccessChanged = 'staff.access_changed';
 
+  /// After a restore: every financial row the POS still has was re-sent in this
+  /// epoch, so the cloud drops report rows of older epochs (§5.4).
+  static const hostRestored = 'host.restored';
+
   /// Types sent to paired devices; everything else is cloud-only.
   static const deviceAudience = {orderUpdated, ticketUpdated, menuChanged, tablesChanged};
 }

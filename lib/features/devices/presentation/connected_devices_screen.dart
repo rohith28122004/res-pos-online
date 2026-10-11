@@ -104,6 +104,37 @@ class _ConnectedDevicesScreenState extends ConsumerState<ConnectedDevicesScreen>
               ),
             )
           else ...[
+            if (identity?.reconcileRequired ?? false) ...[
+              Card(
+                color: const Color(0xFFFFF4E0),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('This POS was restored from a backup', style: t.titleMedium),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Phones and the cloud are kept disconnected so nothing from before the restore is sent by '
+                        'mistake. When you reconnect, phones reload their data and staff sign in again; orders a '
+                        'phone saved before the restore are held for the waiter to check.'
+                        '${identity!.cloudUrl == null ? '' : ' The cloud reports are rebuilt to match this POS.'}',
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        icon: const Icon(Icons.sync),
+                        label: const Text('Reconnect devices'),
+                        onPressed: () => guard(context, () async {
+                          await _identityService().reconnectAfterRestore(requireActor(ref));
+                          await rt.host.restart();
+                        }, success: 'Devices can connect again'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             SectionCard(
               title: 'Phones on the café Wi-Fi',
               child: Column(

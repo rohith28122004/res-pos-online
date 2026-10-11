@@ -282,6 +282,8 @@ export const StaffAccessChanged = z.looseObject({
   role: z.enum(STAFF_ROLES),
   disabled: z.boolean(),
 });
+/** §5.4: the host re-emitted its full financial history in this epoch after a restore. */
+export const HostRestored = z.looseObject({ epoch: Positive, previousEpoch: NonNegative });
 
 function sameIds(rows: ReadonlyArray<Record<string, unknown>>, field: string, id: string): boolean {
   return rows.every((row) => row[field] === id);
@@ -353,6 +355,14 @@ export function validateEventPayload(event: EventEnvelope): void {
     case "staff.access_changed":
       aggregateId = parseOrThrow(StaffAccessChanged, event.payload, where).staffId;
       break;
+    case "host.restored": {
+      // Removes report rows of older epochs, so it must describe its own epoch.
+      const p = parseOrThrow(HostRestored, event.payload, where);
+      if (p.epoch !== event.hostEpoch || p.previousEpoch >= p.epoch) {
+        throw new ApiError("VALIDATION", `Invalid ${where}: epoch must be this event's epoch, after previousEpoch`);
+      }
+      return;
+    }
     default:
       return; // menu.changed, tables.changed and future types: nothing to check
   }

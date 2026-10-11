@@ -21,6 +21,7 @@ import 'package:sqlite3/sqlite3.dart' as sql;
 import '../app_info.dart';
 import '../database/app_database.dart';
 import '../errors/app_exception.dart';
+import '../host/host_identity.dart';
 import '../printing/queue/print_job_writer.dart';
 import '../security/permissions.dart';
 import '../service_context.dart';
@@ -339,8 +340,9 @@ class BackupService {
   ///
   /// 1. owner + fresh password approval, 2. pre-restore backup of current data,
   /// 3. adjust the staged copy (hold print jobs, keep receipt numbers moving
-  /// forward, optional new prefix), 4. close → swap → reopen, 5. roll back
-  /// to the previous file if anything fails.
+  /// forward, optional new prefix), 4. close → swap → reopen, 5. start a new
+  /// host epoch that keeps phones and the cloud off until the owner
+  /// reconnects, 6. roll back to the previous file if anything fails.
   Future<RestoreOutcome> restore(
     Actor actor,
     BackupInspection inspection, {
@@ -355,6 +357,7 @@ class BackupService {
 
     final preRestore = await createBackup(actor: actor, reason: 'pre-restore');
     final live = await _liveCounters();
+    final connected = await ConnectedSnapshot.capture(_db);
     final installation = await ctx.installation();
     // Small, fast edits on the staged file; restore is a modal operation.
     _prepareStaged(
@@ -394,6 +397,8 @@ class BackupService {
       final reopened = await host.reopenDatabase();
       // Opening runs migrations; prove the restored data is readable.
       await reopened.select(reopened.restaurantSettings).getSingle();
+      // New host epoch; phones and the cloud wait for the owner to reconnect.
+      await applyRestoredConnections(ServiceContext(db: reopened, clock: ctx.clock, ids: ctx.ids), connected, actor);
       await staged.delete();
       for (final (dest, _) in moved) {
         if (await dest.exists()) await dest.delete();

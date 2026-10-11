@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cafedesk/core/backup/backup_service.dart';
 import 'package:cafedesk/core/host/cloud_connector.dart';
 import 'package:cafedesk/core/host/command_dispatcher.dart';
 import 'package:cafedesk/core/host/host_api.dart';
@@ -15,6 +16,7 @@ import 'package:cafedesk/core/network/lan_client.dart';
 import 'package:cafedesk/core/protocol/protocol.dart';
 import 'package:cafedesk/core/security/permissions.dart';
 import 'package:cafedesk/core/security/secret_store.dart';
+import 'package:cafedesk/core/service_context.dart';
 import 'package:cafedesk/core/sync/client_database.dart';
 import 'package:cafedesk/core/sync/cloud_route.dart';
 import 'package:cafedesk/core/sync/device_sync.dart';
@@ -27,8 +29,10 @@ import 'package:cafedesk/features/expenses/application/expense_service.dart';
 import 'package:cafedesk/features/refunds/application/refund_service.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 
 import '../support/connected.dart';
+import '../support/file_host.dart';
 import '../support/harness.dart';
 
 /// Cross-language end-to-end test: the Dart POS host and phones against the
@@ -269,6 +273,80 @@ void main() {
       expect((cards['receiptsByMethod']! as Map)['upi'], local.receiptsByMethod['upi']);
       final freshness = (report['freshness']! as Map).cast<String, Object?>();
       expect(freshness['ackedThrough'], isNotNull, reason: 'the cloud report says how current it is');
+    },
+    skip: _enabled ? null : 'set --dart-define=CAFEDESK_CLOUD_E2E=true to run against wrangler dev',
+    timeout: const Timeout(Duration(minutes: 15)),
+  );
+
+  test(
+    'after a backup restore and reconnect, cloud reports match the restored POS (later sales leave them)',
+    () async {
+      final tmp = await Directory.systemTemp.createTemp('cafedesk_e2e_restore');
+      addTearDown(() => tmp.delete(recursive: true));
+      final file = FileHost(File(p.join(tmp.path, 'cafedesk.sqlite')));
+      addTearDown(file.closeDatabase);
+      final h = await Harness.create(start: DateTime.now().toUtc(), database: file.database);
+      final secrets = MemorySecretStore();
+      final (identity, keys) = await HostIdentityService(h.ctx, secrets).ensure(h.owner);
+      final coffee = await h.item(await h.category('Coffee'), 'Filter coffee', 4000);
+      await h.openShift();
+      var cloud = CloudConnector(
+        api: HostApi(ctx: h.ctx, keys: keys, dispatcher: CommandDispatcher(h.ctx)),
+        secrets: secrets,
+      );
+      await cloud.enroll(h.owner, cloudUrl: cloudUrl, enrollmentCode: await issueEnrollmentCode());
+      final hostCredential = (await HostKeys.readCloudCredential(identity.hostDeviceId, secrets))!;
+      final today = (await h.ctx.calendar()).businessDateOf(h.ctx.now());
+      final range = BusinessDateRange(today, today.addDays(1));
+      final http = HttpClient();
+      addTearDown(http.close);
+      Future<Map<String, Object?>> cloudCards() async {
+        final req = await http.getUrl(
+          Uri.parse('$cloudUrl/v1/reports/summary?from=${range.start.key}&to=${range.endExclusive.key}'),
+        );
+        req.headers.set(HttpHeaders.authorizationHeader, 'Bearer $hostCredential');
+        final res = await req.close();
+        final body = jsonDecode(await utf8.decoder.bind(res).join()) as Map<String, Object?>;
+        expect(res.statusCode, 200, reason: '$body');
+        return (body['cards']! as Map).cast<String, Object?>();
+      }
+
+      // Bill A, the backup, then bill B — the cloud has both.
+      await h.pay(await h.orderWith({coffee: 1}), [const TenderInput(method: PaymentMethod.cash, applied: 4000)]);
+      await cloud.uploadNow();
+      final backups = BackupService(
+        h.ctx,
+        databaseFile: file.databaseFile,
+        defaultBackupDir: Directory(p.join(tmp.path, 'backups')),
+        workDir: Directory(p.join(tmp.path, 'work')),
+      );
+      final backup = await backups.createBackup(actor: h.owner);
+      await h.pay(await h.orderWith({coffee: 2}), [const TenderInput(method: PaymentMethod.upi, applied: 8000)]);
+      await cloud.uploadNow();
+      expect(cloud.currentStatus.lastError, isNull);
+      expect((await cloudCards())['completedBills'], 2);
+      await cloud.dispose();
+
+      // Restore the backup (bill B is gone), then the owner reconnects.
+      final inspection = await backups.inspect(h.owner, await File(backup.path).readAsBytes());
+      await backups.restore(h.owner, inspection, approval: await h.approval(), host: file);
+      final ctx = ServiceContext(db: file.database, clock: h.clock);
+      await HostIdentityService(ctx, secrets).reconnectAfterRestore(h.owner);
+      cloud = CloudConnector(
+        api: HostApi(ctx: ctx, keys: keys, dispatcher: CommandDispatcher(ctx)),
+        secrets: secrets,
+      );
+      addTearDown(cloud.dispose);
+      await cloud.uploadNow();
+      expect(cloud.currentStatus.lastError, isNull);
+      expect(cloud.currentStatus.pendingEvents, 0);
+
+      final local = await ReportService(ctx).dashboard(h.owner, range);
+      final cards = await cloudCards();
+      expect(local.billCount, 1);
+      expect(cards['completedBills'], local.billCount);
+      expect(cards['billsTotal'], local.billsTotal);
+      expect((cards['receiptsByMethod']! as Map)['upi'] ?? 0, 0, reason: 'bill B (UPI) is not in the restored POS');
     },
     skip: _enabled ? null : 'set --dart-define=CAFEDESK_CLOUD_E2E=true to run against wrangler dev',
     timeout: const Timeout(Duration(minutes: 15)),
