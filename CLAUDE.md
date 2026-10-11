@@ -22,15 +22,18 @@ baseline. Their money, permission, audit, backup and printing guarantees still a
   to Cloudflare needs an explicit instruction from the owner.
 * Never commit secrets: signing keys, `.dev.vars`, TLS private keys, device or host
   credentials, databases, backups.
+* Owner decision (2026-10-11): **no encrypted cloud backup** — backups stay local. Do not build
+  it from the spec.
 
 ## Toolchain (this PC)
 
 * `. .\scripts\dev-env.ps1` first in every PowerShell session (Flutter, Android SDK, Java,
   pub/Gradle caches on D:).
 * Windows Smart App Control is ON here and blocks unsigned engine tools that lack reputation.
-  The pinned SDK in `dev-env.ps1` (3.47.6) is one whose `flutter_tester`, `impellerc` and
-  `gen_snapshot` run. Do not "upgrade Flutter" without re-checking (see BUILD_AND_RELEASE.md).
-  The unsigned Windows build itself cannot be launched on this PC.
+  The pinned SDK in `dev-env.ps1` (3.47.6) was chosen because its tools ran; since 2026-10-11
+  its Android *release* `gen_snapshot` is blocked (Windows release and Android profile still
+  run) — see BUILD_AND_RELEASE.md. Do not "upgrade Flutter" without re-checking, and never turn
+  Smart App Control off. The unsigned Windows build itself cannot be launched on this PC.
 * `scripts/check.ps1` = format check, analyze, all Flutter tests. Cloud: `cd cloud; npm test`.
 * After editing `lib/core/database/tables.dart`: `dart run build_runner build`.
 * Schema change = new version: bump `AppDatabase.latestSchemaVersion`, run

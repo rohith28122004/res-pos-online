@@ -53,7 +53,7 @@ external dependency · ⬜ not started
   client, sync engine (`lib/core/sync/device_sync.dart`): snapshot + cursor + live events,
   durable command queue (same id on every retry, lookup before resend, backoff with jitter,
   30-minute review rule, per-person isolation), one alarm per kitchen ticket, link status
-- ⬜ Windows firewall / Android network notes (with the runbooks, phase 7)
+- ✅ Windows firewall / Android network notes (`docs/PAIRING_AND_SECURITY.md` §7–8)
 
 ### 4. Waiter → host → kitchen flow
 - ✅ Device modes POS / Waiter / Kitchen (welcome screen; a phone in device mode never opens
@@ -110,8 +110,12 @@ external dependency · ⬜ not started
 ### 7. Hardening, builds, runbooks
 - ✅ Spec §12 checks mapped to automated tests (see the run log); added identity separation,
   replay order, phone restart and snapshot/live race tests
-- ⬜ Android APK and Windows bundle with the new identity
-- ⬜ Setup runbooks, connected test checklist, pilot steps
+- 🟡 Android APK and Windows bundle with the new identity (see the run log for what this PC
+  could build)
+- ✅ Docs: `CONNECTED_ARCHITECTURE.md`, `PAIRING_AND_SECURITY.md` (keys, pairing, sign-in,
+  cloud trust, Windows firewall/sleep/fixed IP, Android Wi-Fi notes),
+  `CONNECTED_TEST_CHECKLIST.md` (physical checks A–E and pilot steps), README index
+- ⬜ Physical-device run of `CONNECTED_TEST_CHECKLIST.md` (needs the café's PC, phones, Wi-Fi)
 
 ## Builds and checks (latest run)
 
@@ -186,6 +190,11 @@ external dependency · ⬜ not started
   owner reconnects.
 
 ## Remaining limitations / open items
+
+- Phones keep the POS address from pairing; if the PC's IP changes they cannot reach it over
+  the Wi-Fi until it is restored (reserve the IP in the router) or the phone is paired again.
+  Automatic discovery is a possible follow-up.
+- Cloud reports exist as an API only; there is no cloud dashboard app.
 
 - This PC has Smart App Control on, so the unsigned Windows build cannot be launched here; the
   host is exercised through automated tests until a signed build or another PC is available.

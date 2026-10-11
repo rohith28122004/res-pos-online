@@ -30,6 +30,23 @@ stable (3.47.7, one day old) had `impellerc` and `gen_snapshot` blocked; 3.44.9 
 machine without Smart App Control any current stable works. Re-check before upgrading:
 run `flutter test --no-test-assets` and `flutter build apk` once.
 
+The verdicts can change without any change on our side: on **2026-10-11** Smart App Control
+started blocking 3.47.6's `android-arm64-release` and `android-arm-release` `gen_snapshot.exe`
+(Code Integrity events 3033/3077, the Smart App Control policy), which had built the offline
+APK the day before. The Windows release and Android *profile* `gen_snapshot.exe` still ran. A
+release APK then has to be built on another machine (or later, once allowed). For phone
+testing in the meantime:
+
+```powershell
+flutter build apk --profile --target-platform android-arm64   # AOT-compiled, same behaviour
+# build\app\outputs\flutter-apk\app-profile.apk — label it a TEST build, not a release
+```
+
+The app has no mode-dependent code, so a profile build behaves like a release build; it also
+carries the profiling engine (Dart VM service on the phone's loopback only), so it is for
+testing, not distribution. Do not turn Smart App Control off to get a build through: on many
+Windows 11 versions it cannot be turned back on without a clean install of Windows.
+
 The same policy applies to the app you build: **an unsigned `cafedesk.exe` is blocked on PCs
 with Smart App Control enforcing** and triggers SmartScreen warnings elsewhere. Sign it (below).
 

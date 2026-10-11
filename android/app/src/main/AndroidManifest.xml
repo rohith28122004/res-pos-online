@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- LAN (TCP 9100) printers need sockets; no internet service is used. -->
+    <!-- Sockets for LAN (TCP 9100) printers, the POS over the café Wi-Fi (TLS) and the
+         optional cloud relay. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Bluetooth Classic printers: legacy permissions up to Android 11, CONNECT from 12. -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>

@@ -79,6 +79,11 @@ Builds:
 | `CONNECTED_BUILD_SPEC.md` | the connected product's specification / acceptance contract |
 | `docs/PROGRESS.md` | connected build status, checks run, assumptions, open items |
 | `docs/BASELINE.md` | source repo and commit, identity changes, baseline checks |
+| `docs/CONNECTED_ARCHITECTURE.md` | POS host, phones and cloud relay: pieces, flows, outages, retention |
+| `docs/PROTOCOL.md` | wire protocol v1: commands, events, restore, LAN and cloud APIs |
+| `docs/PAIRING_AND_SECURITY.md` | keys, pairing, sign-in, cloud trust, Windows firewall and Android Wi-Fi setup |
+| `docs/CLOUDFLARE_SETUP.md` | cloud relay: local development and the (not yet run) deployment runbook |
+| `docs/CONNECTED_TEST_CHECKLIST.md` | physical phone/tablet/Wi-Fi checks and pilot steps |
 | `docs/OFFLINE_POS_BUILD_SPEC.md` | historical: the offline specification |
 | `docs/OFFLINE_PROGRESS.md` | historical: the offline build log |
 | `docs/ARCHITECTURE.md` | layers, principles, startup, folder map |
@@ -100,3 +105,6 @@ Builds:
   credentials and does not verify payments.
 * Owner recovery: the one-time recovery code from setup (or a second owner account). There is
   no master password.
+* Phones reach the POS only over TLS with a pinned certificate, after owner pairing and a
+  personal sign-in; the cloud relay never sees passwords. Details, Windows firewall and Android
+  Wi-Fi setup: `docs/PAIRING_AND_SECURITY.md`.
