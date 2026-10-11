@@ -43,12 +43,23 @@ import '../support/harness.dart';
 ///
 /// Uses the cloud's local Miniflare state in `cloud/.wrangler/` (git-ignored).
 /// Nothing touches a Cloudflare account.
-const _enabled = bool.fromEnvironment('CAFEDESK_CLOUD_E2E');
+///
+/// Against the DEPLOYED relay instead (owner-approved checks only; each run
+/// enrolls test restaurants, labelled "E2E remote check", in that database):
+///
+///   flutter test --dart-define=CAFEDESK_CLOUD_URL=https://WORKER-HOST test/e2e
+///
+/// Enrollment codes then go to the remote D1 of `CAFEDESK_CLOUD_ENV`
+/// (default `production`).
+const _remoteUrl = String.fromEnvironment('CAFEDESK_CLOUD_URL');
+const _remoteEnv = String.fromEnvironment('CAFEDESK_CLOUD_ENV', defaultValue: 'production');
+const _remote = _remoteUrl != '';
+const _enabled = bool.fromEnvironment('CAFEDESK_CLOUD_E2E') || _remote;
 const _port = 8799;
 
 void main() {
   late Process wrangler;
-  final cloudUrl = 'http://127.0.0.1:$_port';
+  final cloudUrl = _remote ? _remoteUrl : 'http://127.0.0.1:$_port';
   final cloudDir = Directory('cloud').absolute.path;
   final node = Platform.isWindows ? 'node.exe' : 'node';
 
@@ -56,7 +67,8 @@ void main() {
     final r = await Process.run(node, [
       'scripts/issue-enrollment-code.mjs',
       '--label',
-      'E2E',
+      _remote ? 'E2E remote check' : 'E2E',
+      if (_remote) ...['--env', _remoteEnv],
     ], workingDirectory: cloudDir);
     expect(r.exitCode, 0, reason: '${r.stderr}');
     final m = RegExp(r'^\s+([0-9A-Z]{4}(?:-[0-9A-Z]{4})+)\s*$', multiLine: true).firstMatch(r.stdout as String);
@@ -65,7 +77,7 @@ void main() {
   }
 
   setUpAll(() async {
-    if (!_enabled) return;
+    if (!_enabled || _remote) return;
     wrangler = await Process.start(
       node,
       ['node_modules/wrangler/bin/wrangler.js', 'dev', '--port', '$_port', '--ip', '127.0.0.1'],
@@ -92,7 +104,7 @@ void main() {
   });
 
   tearDownAll(() async {
-    if (!_enabled) return;
+    if (!_enabled || _remote) return;
     wrangler.kill();
     await wrangler.exitCode.timeout(const Duration(seconds: 20), onTimeout: () => -1);
   });

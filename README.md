@@ -82,7 +82,7 @@ Builds:
 | `docs/CONNECTED_ARCHITECTURE.md` | POS host, phones and cloud relay: pieces, flows, outages, retention |
 | `docs/PROTOCOL.md` | wire protocol v1: commands, events, restore, LAN and cloud APIs |
 | `docs/PAIRING_AND_SECURITY.md` | keys, pairing, sign-in, cloud trust, Windows firewall and Android Wi-Fi setup |
-| `docs/CLOUDFLARE_SETUP.md` | cloud relay: local development and the (not yet run) deployment runbook |
+| `docs/CLOUDFLARE_SETUP.md` | cloud relay: local development, the deployed production relay, enrollment codes, rollback |
 | `docs/CONNECTED_TEST_CHECKLIST.md` | physical phone/tablet/Wi-Fi checks and pilot steps |
 | `docs/OFFLINE_POS_BUILD_SPEC.md` | historical: the offline specification |
 | `docs/OFFLINE_PROGRESS.md` | historical: the offline build log |

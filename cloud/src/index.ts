@@ -41,8 +41,16 @@ function notFound(): never {
   throw new ApiError("NOT_FOUND", "No such route");
 }
 
+/** Only a local development Worker (`wrangler dev`) may be reached over plain http. */
+const LOCAL_HOSTS: ReadonlySet<string> = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
 async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
+  // Credentials and session tokens never travel in clear text: a client set up
+  // with an http:// address fails loudly instead of working unencrypted.
+  if (url.protocol !== "https:" && !LOCAL_HOSTS.has(url.hostname)) {
+    throw new ApiError("FORBIDDEN", "Use https://");
+  }
   const method = request.method;
   const parts = url.pathname.split("/").filter((p) => p !== "");
   if (parts[0] !== "v1") notFound();

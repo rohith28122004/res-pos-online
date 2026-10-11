@@ -18,8 +18,11 @@ baseline. Their money, permission, audit, backup and printing guarantees still a
   its releases or its installed data. Never touch `qrmenu`.
 * Push only to `https://github.com/rohith28122004/res-pos-online` (check `git remote get-url
   origin` before every push). No force-push.
-* Cloudflare: develop and test locally (`wrangler dev`, vitest with local bindings). Deploying
-  to Cloudflare needs an explicit instruction from the owner.
+* Cloudflare: develop and test locally (`wrangler dev`, vitest with local bindings). The owner
+  had it deployed on 2026-10-11 (`env.production`, `https://cafedesk-online.growlineecommerce.workers.dev`,
+  docs/CLOUDFLARE_SETUP.md §8). Redeploy only after `npm test` + `npm run typecheck` pass and the
+  owner wants the change live; never write test data to the production database without the
+  owner's OK; new D1 migrations are applied before the code that needs them.
 * Never commit secrets: signing keys, `.dev.vars`, TLS private keys, device or host
   credentials, databases, backups.
 * Owner decision (2026-10-11): **no encrypted cloud backup** — backups stay local. Do not build

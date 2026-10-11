@@ -39,10 +39,11 @@ ThemeData buildTheme() {
         side: const BorderSide(color: Color(0xFFE6DED3)),
       ),
     ),
+    // Styles built from the text theme keep its font family on every platform.
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(64, 48),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        textStyle: base.textTheme.labelLarge?.copyWith(fontSize: 16, fontWeight: FontWeight.w600),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(minimumSize: const Size(64, 48))),
@@ -55,7 +56,7 @@ ThemeData buildTheme() {
     ),
     // An explicit colour: without one, chip labels inherited near-white text.
     chipTheme: base.chipTheme.copyWith(
-      labelStyle: TextStyle(
+      labelStyle: base.textTheme.labelLarge?.copyWith(
         fontSize: 15,
         color: WidgetStateColor.resolveWith(
           (s) => s.contains(WidgetState.disabled) ? AppColors.ink.withValues(alpha: 0.38) : AppColors.ink,

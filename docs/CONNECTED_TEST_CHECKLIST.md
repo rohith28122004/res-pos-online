@@ -46,7 +46,7 @@ CaféDesk Online version on every device, printer models.
 | C6 | PC address changes | Give the PC a new IP address (router). | Phones show not connected (expected; reserve the PC's IP). Re-pairing fixes it. | not run | |
 | C7 | Remove a phone | Remove a paired phone on the POS while it is in use. | The phone is disconnected at once and says it was removed. | not run | |
 
-## D. Cloud relay (only after the owner decides to deploy — see `docs/CLOUDFLARE_SETUP.md`)
+## D. Cloud relay (deployed at `https://cafedesk-online.growlineecommerce.workers.dev`; codes: `docs/CLOUDFLARE_SETUP.md` §8)
 
 | # | Check | Steps | Expected | Result | Evidence |
 |---|---|---|---|---|---|
@@ -74,6 +74,6 @@ CaféDesk Online version on every device, printer models.
    printer on as a backup to the kitchen display.
 5. After the shift: compare the POS dashboard and the printed KOTs with what the phones showed;
    note any confusing message for the waiters.
-6. Only if the owner wants waiters off the Wi-Fi or off-site reports: deploy the cloud with the
-   owner's account (`docs/CLOUDFLARE_SETUP.md` runbook), then run section D.
+6. If the owner wants waiters off the Wi-Fi or off-site reports: issue an enrollment code for the
+   café (`docs/CLOUDFLARE_SETUP.md` §8), connect the POS to the deployed cloud, then run section D.
 7. Practise section E once on a copy of the data before relying on restores.

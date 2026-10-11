@@ -1,9 +1,9 @@
 // CaféDesk Online cloud relay — Wrangler configuration.
 //
-// Local development only until the owner explicitly instructs a deployment
-// (see docs/CLOUDFLARE_SETUP.md, "Deployment runbook"). `wrangler dev` and the
-// Vitest suite use local simulations of every binding below; nothing here
-// touches a Cloudflare account.
+// The top level is LOCAL development: `wrangler dev` and the Vitest suite use
+// local simulations of every binding below and touch no Cloudflare account.
+// `env.production` is the deployed relay (deployed on the owner's instruction,
+// 2026-10-11): `wrangler deploy --env production`. See docs/CLOUDFLARE_SETUP.md.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cafedesk-online-dev",
@@ -54,5 +54,48 @@
     "MAX_BACKUP_BYTES": "52428800",
     // Upper bound for one media object (bytes).
     "MAX_MEDIA_BYTES": "5242880"
+  },
+  "env": {
+    // The deployed relay. Bindings are not inherited from the top level, so
+    // every one is repeated here. IDs below are identifiers, not secrets; the
+    // Worker needs no secrets (CLOUDFLARE_SETUP.md §3).
+    "production": {
+      "name": "cafedesk-online",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "cafedesk-online",
+          "database_id": "c511424f-2485-49d9-bee5-124ce4d8a8c2",
+          "migrations_dir": "migrations"
+        }
+      ],
+      // Private: no r2.dev URL, no custom domain, no CORS.
+      "r2_buckets": [
+        {
+          "binding": "BUCKET",
+          "bucket_name": "cafedesk-online"
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "HUB",
+            "class_name": "RestaurantHub"
+          }
+        ]
+      },
+      // Same as the top level, stated here explicitly. Never edit an applied
+      // migration; add "v2" etc.
+      "migrations": [
+        {
+          "tag": "v1",
+          "new_sqlite_classes": ["RestaurantHub"]
+        }
+      ],
+      "vars": {
+        "MAX_BACKUP_BYTES": "52428800",
+        "MAX_MEDIA_BYTES": "5242880"
+      }
+    }
   }
 }

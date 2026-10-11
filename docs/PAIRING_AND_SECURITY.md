@@ -79,7 +79,8 @@ the keys were lost, or you are unsure who has paired phones.
   or address another's data (tested in `cloud/test/isolation.test.ts`).
 * Cloud addresses must be `https://` (only a local development Worker on `127.0.0.1`/`localhost`
   may use `http://`). No Cloudflare administrator credentials are in the app.
-* Deployment status and runbook: `docs/CLOUDFLARE_SETUP.md` (not deployed).
+* Deployed 2026-10-11 at `https://cafedesk-online.growlineecommerce.workers.dev`; plain `http://`
+  is refused there. Details and operation: `docs/CLOUDFLARE_SETUP.md` §8.
 
 ## 6. After restoring a backup
 

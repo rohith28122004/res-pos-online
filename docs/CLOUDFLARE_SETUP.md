@@ -1,8 +1,8 @@
 # Cloudflare setup — CaféDesk Online cloud relay
 
-Status (2026-10-11): **implemented and tested locally only.** Nothing has been deployed and no
-Cloudflare account has been touched. Deployment needs an explicit instruction from the owner;
-the runbook at the end of this file is written for that moment and is **not done**.
+Status (2026-10-11): **deployed on the owner's instruction** to the `production` environment —
+`https://cafedesk-online.growlineecommerce.workers.dev` (details in §8). Local development and
+the test suites are unchanged and still use only local simulations.
 
 The cloud is a relay and a projection, never an authority: the POS host decides every order,
 ticket, bill and refund. The protocol is `docs/PROTOCOL.md` (§8 is the cloud API).
@@ -79,8 +79,9 @@ Notes:
 * npm 11 prints `allow-scripts` warnings for `esbuild` and `workerd`; their install scripts are
   only checks — the binaries come from platform packages. Nothing needs approving.
 * `issue-enrollment-code` prints a code like `ABCD-EFGH-JKMN-PQRS` **once** and stores only its
-  SHA-256 in the local D1. Codes are single-use and expire (default 24 h). Both scripts refuse
-  `--remote`: running them against a deployed database is an owner decision (see §8).
+  SHA-256 — in the local D1, or with `--env production` in the deployed one (§8). Codes are
+  single-use and expire (default 24 h). A bare `--remote` is refused; `rebuild-projections`
+  stays local-only.
 * `rebuild-projections` clears the report projections and replays them from the immutable
   ledger with the same SQL ingest uses; running it twice changes nothing.
 * Tests run with one worker and without per-file isolation (`vitest.config.ts`), because the
@@ -124,6 +125,8 @@ Notes:
 
 Every error is `{"error":{"code","message","retryable","details"}}`. Responses carry
 `Cache-Control: no-store` (media: `private, max-age=300`) and `X-Content-Type-Options: nosniff`.
+Plain `http://` requests are refused with 403 `FORBIDDEN` ("Use https://"), except on
+`localhost`/`127.0.0.1` for `wrangler dev`.
 
 ## 5. R2 bucket
 
@@ -170,10 +173,40 @@ Versions in use (exact, `package-lock.json`): wrangler 4.149.0 (bundled workerd 
 used), typescript 6.0.3, zod 4.6.5. `compatibility_date` = **2026-10-01** (supported by the
 bundled workerd; includes `web_socket_auto_reply_to_close`).
 
-## 8. Deployment runbook — REQUIRES EXPLICIT OWNER INSTRUCTION — NOT DONE
+## 8. Deployment — DONE on 2026-10-11 (owner's instruction)
 
-Do none of this without the owner's explicit go-ahead. Check the limits/pricing pages (§1)
-first and choose the plan deliberately.
+| Item | Value |
+|---|---|
+| Cloudflare account | "Growlineecommerce@gmail.com's Account" (`wrangler whoami`, OAuth login already on the dev PC) |
+| Worker | `cafedesk-online` (`wrangler.jsonc` → `env.production`) |
+| URL (give this to the POS) | `https://cafedesk-online.growlineecommerce.workers.dev` |
+| D1 | `cafedesk-online`, id `c511424f-2485-49d9-bee5-124ce4d8a8c2`, location hint APAC; migration `0001_initial_schema.sql` applied |
+| R2 | `cafedesk-online`, location hint APAC, private (no r2.dev URL, no custom domain, no CORS) |
+| Durable Object | `RestaurantHub`, SQLite storage, migration tag `v1` |
+| Versions | `e52535a1-7e41-4c31-93ab-65983351897a` (first), `91be11a3-0b37-472b-8f38-8576c2d69484` (https-only; current) |
+| Secrets | none (the Worker needs none) |
+
+Smoke checks run against the deployed URL: `GET /v1/health` → 200 with `no-store` and
+`nosniff`; host route without / with a bogus credential → 401; enroll with malformed keys → 400,
+with a wrong code → 401; unknown route → 404; plain `http://` → 403. **Not yet run:** the full
+end-to-end test against the deployed relay (it enrolls test restaurants in the production
+database, so it waits for the owner's OK):
+`flutter test --dart-define=CAFEDESK_CLOUD_URL=https://cafedesk-online.growlineecommerce.workers.dev test/e2e`.
+
+Day-to-day operation (from `cloud/`):
+
+```powershell
+npm run issue-enrollment-code -- --env production --label "Cafe name" --hours 24   # code for a café's POS
+npx wrangler deploy --env production          # after npm test + npm run typecheck pass
+npx wrangler deployments list --env production
+npx wrangler rollback <version-id> --env production   # code only, never data
+npx wrangler d1 migrations apply DB --env production --remote   # new migrations, before deploying code that needs them
+```
+
+Not done (optional): a custom domain, and checking the account's Workers plan against the limits
+in §1 (the free plan's per-request CPU limit is the one most likely to matter for large uploads).
+
+### Original runbook (as followed)
 
 1. `cd cloud && npx wrangler login` (the owner's Cloudflare account, in a browser).
 2. Create resources (pick an environment suffix, e.g. `prod`):
@@ -205,7 +238,8 @@ first and choose the plan deliberately.
 
 ## 9. Known limitations / pending
 
-* Not deployed; no real-network, real-device or multi-region behaviour has been exercised.
+* Deployed (§8), but only smoke-checked: the full end-to-end run against the deployed relay, real
+  phones and real café networks are still pending.
 * Backups are buffered in memory (size cap) rather than streamed.
 * `events_available` from the host is recorded but not forwarded; devices are woken only after
   a batch is durably ingested.

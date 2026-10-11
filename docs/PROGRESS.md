@@ -74,13 +74,15 @@ external dependency · ⬜ not started
 ### 5. Cloudflare relay (local)
 - ✅ `cloud/`: Worker API (all PROTOCOL §8 routes), `RestaurantHub` Durable Object (hibernating
   sockets, durable mailbox in DO SQLite, 30-minute expiry, quarantine on new epoch, relay
-  with 503/504), D1 ledger + report projections (rebuildable), private R2 storage. Local only;
-  nothing deployed
+  with 503/504), D1 ledger + report projections (rebuildable), private R2 storage
+- ✅ **Deployed 2026-10-11 on the owner's instruction**: `https://cafedesk-online.growlineecommerce.workers.dev`
+  (D1/R2 `cafedesk-online`, APAC; `CLOUDFLARE_SETUP.md` §8). Smoke checks passed; the full
+  end-to-end run against it waits for the owner's OK (it writes test restaurants)
 - ✅ Enrollment with single-use operator codes; device registry from host events; ingest with
   gap/duplicate/content-mismatch checks; report cards from `REPORT_DEFINITIONS.md` with
   freshness (acknowledged cursor, last ingest time)
-- ✅ Cross-restaurant isolation tests; `docs/CLOUDFLARE_SETUP.md` (local dev, runbook for a
-  later deployment that needs the owner's instruction)
+- ✅ Cross-restaurant isolation tests; `docs/CLOUDFLARE_SETUP.md` (local dev, deployment,
+  enrollment codes, rollback)
 - ✅ POS cloud connector (`lib/core/host/cloud_connector.dart`: enroll + history backfill,
   ordered upload with acknowledgements, relay socket) and phone cloud route
   (`lib/core/sync/cloud_route.dart`)
@@ -127,6 +129,7 @@ external dependency · ⬜ not started
 | Flutter tests | see the latest run-log entry |
 | Cloud tests | see the latest run-log entry |
 | Cloud end-to-end (`--dart-define=CAFEDESK_CLOUD_E2E=true test/e2e`, local `wrangler dev`) | 2 passed |
+| Deployed cloud | live at `https://cafedesk-online.growlineecommerce.workers.dev`; smoke checks passed; full end-to-end against it not run yet (needs the owner's OK) |
 | Android / Windows builds | Windows zip built (unsigned); Android arm64 TEST APK (profile) built; Android release APK blocked here |
 | Physical devices / printers | not run (none available here) |
 
@@ -198,6 +201,20 @@ external dependency · ⬜ not started
     launched on this PC (Smart App Control) — not run here.
   * Offline repo check (read-only): `C:\Users\rohit\projects\cafedesk` clean at `f65c4bb`,
     origin `res-pos` — untouched.
+- 2026-10-11 — Waiter/kitchen screenshots for the owner (`test/screenshots`, opt-in, real fonts).
+  Theme: filled-button and chip label styles now come from the text theme (they had no font
+  family, which only showed in test renders).
+- 2026-10-11 — **Cloud deployed on the owner's instruction** ("ok deploy the cloudflare") to the
+  account already logged in on this PC (growlineecommerce): D1 `cafedesk-online` (APAC, schema
+  applied), R2 `cafedesk-online` (APAC, private), Worker `cafedesk-online` via
+  `wrangler deploy --env production`. Smoke checks on the live URL: health 200 (`no-store`,
+  `nosniff`), unauthenticated/bogus credential 401, malformed enroll 400, wrong code 401,
+  unknown route 404. Found plain `http://` answered → the Worker now refuses it (403) except on
+  localhost; test added; redeployed (version `91be11a3…`) and re-checked (http 403, https 200).
+  `issue-enrollment-code` gained `--env production`. Cloud vitest 92 passed, typecheck clean;
+  Flutter 241 passed, 6 skipped (opt-in end-to-end + screenshots). The full end-to-end run
+  against the deployed relay was stopped by the session's safety check (it would write test
+  restaurants into the production database) — waiting for the owner's OK.
 
 ## Assumptions and decisions
 

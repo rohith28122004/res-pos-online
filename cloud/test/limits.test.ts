@@ -1,4 +1,5 @@
 // Request limits, protocol versions and command validation at the edge.
+import { exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { api, command, deviceHeaders, json, jsonInit, newRestaurant, pairDevice, staffToken } from "./helpers";
 
@@ -87,5 +88,14 @@ describe("limits and versions", () => {
       error: { code: "NOT_FOUND", message: "No such route", retryable: false, details: {} },
     });
     expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("refuses plain http except for a local development Worker", async () => {
+    const plain = await exports.default.fetch("http://cloud.test/v1/health");
+    expect(plain.status).toBe(403);
+    expect((await json(plain)).error.code).toBe("FORBIDDEN");
+    const local = await exports.default.fetch("http://127.0.0.1:8787/v1/health");
+    expect(local.status).toBe(200);
+    await local.arrayBuffer();
   });
 });

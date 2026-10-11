@@ -49,7 +49,7 @@ connection can delay an order but never invent or duplicate one.
 | `LanRoute` / `CloudRoute` | `host_route.dart`, `cloud_route.dart` | The two ways to reach the same POS; LAN first |
 | `DeviceRuntime` | `lib/app/device_runtime.dart` | Opens the phone database and engine in device mode |
 
-### Cloud (`cloud/`, local `wrangler dev` only until the owner says otherwise)
+### Cloud (`cloud/`; deployed 2026-10-11 as `cafedesk-online` — `CLOUDFLARE_SETUP.md` §8)
 
 | Piece | Where | Job |
 |---|---|---|
