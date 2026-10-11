@@ -121,6 +121,8 @@ class DeviceMenuButton extends ConsumerWidget {
       icon: const Icon(Icons.account_circle_outlined),
       onSelected: (v) async {
         switch (v) {
+          case 'details':
+            await showDialog<void>(context: context, builder: (_) => const ConnectionDetailsDialog());
           case 'refresh':
             await guard(context, sync.refresh, success: 'Updated from the POS');
           case 'signout':
@@ -140,10 +142,74 @@ class DeviceMenuButton extends ConsumerWidget {
       },
       itemBuilder: (_) => [
         if (session != null) PopupMenuItem(enabled: false, child: Text('${session.name} · ${session.role}')),
+        const PopupMenuItem(value: 'details', child: Text('Connection details')),
         const PopupMenuItem(value: 'refresh', child: Text('Refresh from the POS')),
         const PopupMenuItem(value: 'signout', child: Text('Sign out')),
         const PopupMenuItem(value: 'unpair', child: Text('Unpair this phone')),
       ],
+    );
+  }
+}
+
+/// What this phone knows about its link to the POS, for troubleshooting.
+class ConnectionDetailsDialog extends ConsumerWidget {
+  const ConnectionDetailsDialog({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = ref.watch(deviceLinkProvider).value;
+    final status = ref.watch(linkStatusProvider).value ?? const LinkStatus();
+    final commands = ref.watch(myCommandsProvider).value ?? const [];
+    final waiting = commands.where((c) => CommandState.open.contains(c.state)).length;
+    final review = commands.where((c) => c.state == CommandState.needsReview).length;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final route = switch (status) {
+      LinkStatus(live: true, route: 'lan') => 'Café Wi-Fi (direct to the POS)',
+      LinkStatus(live: true, route: 'cloud') => 'Cloud relay',
+      _ => 'Not connected',
+    };
+    final rows = <(String, String)>[
+      ('POS', l?.restaurantName ?? '—'),
+      ('This device', l == null ? '—' : '${l.deviceName} · ${l.role == 'kitchen' ? 'kitchen display' : 'waiter'}'),
+      ('Connection', route),
+      if (l?.cloudUrl == null) ('Cloud relay', 'Not set up on the POS'),
+      if (status.route == 'cloud' && status.hostConnectedToCloud == false) ('POS', 'Offline from the cloud'),
+      ('Last update from the POS', status.lastLiveAt == null ? 'Never' : LinkBanner.ago(status.lastLiveAt!, now)),
+      ('Orders waiting to send', '$waiting'),
+      if (review > 0) ('Orders to check', '$review'),
+      if (l != null) ('Data version', '${l.cursorEpoch}.${l.cursorSequence}'),
+      if (l != null) ('Paired', formatLocalMs(l.pairedAt)),
+      ('App version', AppInfo.version),
+    ];
+    final t = Theme.of(context).textTheme;
+    return AlertDialog(
+      title: const Text('Connection details'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final (label, value) in rows)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Text(label, style: t.bodyMedium?.copyWith(color: Colors.black54)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 3, child: Text(value, style: t.bodyMedium)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
     );
   }
 }

@@ -304,6 +304,7 @@ void main() {
     'waiter home': () => const WaiterHomeScreen(),
     'order builder': () => const OrderBuilderScreen(orderType: 'dine_in', tableId: 't2', tableLabel: 'T2'),
     'order detail': () => const OrderDetailScreen(orderId: 'o1'),
+    'connection details': () => const Scaffold(body: ConnectionDetailsDialog()),
     'item options': () => Scaffold(
       body: ItemOptionsSheet(
         item: {

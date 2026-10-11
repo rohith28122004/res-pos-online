@@ -16,6 +16,7 @@ import 'package:cafedesk/core/security/secret_store.dart';
 import 'package:cafedesk/core/sync/client_database.dart';
 import 'package:cafedesk/core/sync/device_sync.dart';
 import 'package:cafedesk/features/devices/application/device_service.dart';
+import 'package:cafedesk/features/orders/domain/order_models.dart';
 import 'package:cafedesk/features/tables/application/table_service.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
@@ -443,6 +444,74 @@ void main() {
     // Its sync loop (not running in this test) reloads the POS data.
     await phone.refresh();
     expect((await phone.db.select(phone.db.clientLink).getSingle()).hostEpoch, 2);
+  });
+
+  test('an order saved while the POS is down survives the phone app being closed, and is placed once', () async {
+    final dir = await Directory.systemTemp.createTemp('cafedesk_phone_restart');
+    addTearDown(() => dir.delete(recursive: true));
+    final file = File('${dir.path}/phone.sqlite');
+    final phoneSecrets = MemorySecretStore(); // the phone's secure storage survives a restart
+    final first = DeviceSync(db: openClientDatabase(file), secrets: phoneSecrets, clock: h.clock);
+    await first.pair(await invite(DeviceRole.waiter), deviceName: 'Front phone');
+    await first.signIn('wendy.waiter@test.cafe', 'password-Wendy Waiter');
+    await server.stop();
+    final id = await first.enqueue(
+      action: CommandAction.orderPlace,
+      payload: {
+        'orderType': 'takeaway',
+        'lines': [line(coffee, 4000)],
+        'sendToKitchen': true,
+      },
+      summary: 'Takeaway',
+    );
+    await first.deliverNow();
+    // The app is closed (or killed) with the order still on the phone.
+    await first.dispose();
+    await first.db.close();
+
+    final keys = await HostIdentityService(h.ctx, hostSecrets).ensure(h.owner);
+    server = LanServer(HostApi(ctx: h.ctx, keys: keys.$2, dispatcher: CommandDispatcher(h.ctx)));
+    await server.start(
+      port: (await HostIdentityService(h.ctx, hostSecrets).current())!.lanPort,
+      address: InternetAddress.loopbackIPv4,
+    );
+    final again = DeviceSync(db: openClientDatabase(file), secrets: phoneSecrets, clock: h.clock);
+    // Registered after the folder clean-up, so it runs first (Windows cannot
+    // delete an open database file).
+    addTearDown(() async {
+      await again.dispose();
+      await again.db.close();
+    });
+    final saved = await (again.db.select(again.db.pendingCommands)..where((x) => x.commandId.equals(id))).getSingle();
+    expect(saved.state, CommandState.queued, reason: 'nothing was lost when the app closed');
+    await (again.db.update(again.db.pendingCommands)..where((x) => x.commandId.equals(id))).write(
+      const PendingCommandsCompanion(nextAttemptAt: Value(0)),
+    );
+    await again.deliverNow();
+    await again.deliverNow();
+    final row = await (again.db.select(again.db.pendingCommands)..where((x) => x.commandId.equals(id))).getSingle();
+    expect(row.state, CommandState.accepted);
+    expect(await h.count(h.db.orders), 1);
+    expect(await h.count(h.db.kitchenTickets), 1);
+  });
+
+  test('a change made between the snapshot and the live connection is not lost', () async {
+    final phone = await pairedPhone(
+      DeviceRole.waiter,
+      email: 'wendy.waiter@test.cafe',
+      password: 'password-Wendy Waiter',
+    );
+    await phone.refresh(); // snapshot + cursor, read together
+    // The cashier opens T1 before the phone subscribes for live changes.
+    final orderId = await h.orders.createOrder(h.cashier, type: OrderType.dineIn, tableId: t1);
+    await phone.start();
+    final cached = await eventually(() async {
+      final row = await (phone.db.select(
+        phone.db.cacheEntries,
+      )..where((c) => c.key.equals('order:$orderId'))).getSingleOrNull();
+      return row;
+    });
+    expect((jsonDecode(cached.json) as Map)['tableLabel'], 'T1');
   });
 
   test('signing out keeps a person\'s unsent commands for them only', () async {

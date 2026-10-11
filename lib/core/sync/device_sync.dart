@@ -408,7 +408,9 @@ class DeviceSync {
     _setStatus(_current.copyWith(lastLiveAt: now));
   }
 
-  /// Applies events after the cursor; ignores old or duplicate ones. Returns
+  /// Applies events after the cursor in sequence order; ignores old or
+  /// duplicate ones. Sequences skip cloud-only events, so [through] (everything
+  /// for devices up to it was sent) moves the cursor, never a guess. Returns
   /// false if a snapshot is needed instead (epoch change).
   Future<bool> applyEvents(int epoch, List<Map<String, Object?>> events, int through) async {
     final l = (await link())!;
@@ -416,9 +418,10 @@ class DeviceSync {
     var refetch = false;
     final now = _now();
     final fresh = <Map<String, Object?>>[];
+    final ordered = [...events]..sort((a, b) => (a['sequence']! as int).compareTo(b['sequence']! as int));
     await db.transaction(() async {
       var cursor = l.cursorSequence;
-      for (final e in events) {
+      for (final e in ordered) {
         final seq = e['sequence']! as int;
         if (e['hostEpoch'] != epoch || seq <= cursor) continue;
         final payload = (e['payload']! as Map).cast<String, Object?>();

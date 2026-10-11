@@ -56,30 +56,60 @@ external dependency · ⬜ not started
 - ⬜ Windows firewall / Android network notes (with the runbooks, phase 7)
 
 ### 4. Waiter → host → kitchen flow
-- ⬜ Device modes POS / Waiter / Kitchen
-- ⬜ Waiter: tables, menu, drafts, send, states, additions, price/availability conflicts
-- ⬜ Kitchen: board, preparing/ready with revision checks, alarm without repeats, mute, keep awake
-- ⬜ Host screens: connected devices, pair device, host status
+- ✅ Device modes POS / Waiter / Kitchen (welcome screen; a phone in device mode never opens
+  the POS database; hosting only on Windows)
+- ✅ Waiter (`lib/features/waiter/`): tables with occupancy, menu search/categories/variants/
+  modifiers/notes, drafts per table, send to kitchen through host acceptance, explicit states
+  (saved on phone / waiting in cloud / accepted / not accepted / check before sending again),
+  additions to accepted orders, owner-approved corrections, price/sold-out conflicts shown for
+  confirmation, "add to existing order" when a table is taken
+- ✅ Kitchen (`lib/features/kitchen/`): columns on tablets, tabs on phones, preparing/ready with
+  revision checks, one alarm per new ticket (not on replay), mute, keep-awake, honest pending
+  state
+- ✅ Host screens: Connected devices (phone connections on/off, pair with QR + expiry, device
+  list and removal, cloud connection, reset), live status chip in the top bar
+- 🟡 Render tests at phone and tablet sizes pass; not yet tried on a physical phone, camera QR
+  scanner or kitchen speaker (no device here)
 
 ### 5. Cloudflare relay (local)
 - ✅ `cloud/`: Worker API (all PROTOCOL §8 routes), `RestaurantHub` Durable Object (hibernating
   sockets, durable mailbox in DO SQLite, 30-minute expiry, quarantine on new epoch, relay
-  with 503/504), D1 ledger + report projections (rebuildable), private R2 backups and menu
-  images. Local only; nothing deployed
+  with 503/504), D1 ledger + report projections (rebuildable), private R2 storage. Local only;
+  nothing deployed
 - ✅ Enrollment with single-use operator codes; device registry from host events; ingest with
-  gap/duplicate/content-mismatch checks; report cards from `REPORT_DEFINITIONS.md`
+  gap/duplicate/content-mismatch checks; report cards from `REPORT_DEFINITIONS.md` with
+  freshness (acknowledged cursor, last ingest time)
 - ✅ Cross-restaurant isolation tests; `docs/CLOUDFLARE_SETUP.md` (local dev, runbook for a
   later deployment that needs the owner's instruction)
-- ⬜ POS cloud connector (enroll, upload, relay socket) and phone cloud route
+- ✅ POS cloud connector (`lib/core/host/cloud_connector.dart`: enroll + history backfill,
+  ordered upload with acknowledgements, relay socket) and phone cloud route
+  (`lib/core/sync/cloud_route.dart`)
 
 ### 6. Fallback, recovery, sync status, restore
-- ⬜ LAN-first, cloud fallback with the same command id
-- ⬜ Restart/outage recovery, replay, sync queue / last sync screens
-- ⬜ Restore → new host epoch, quarantine, reconciliation before reconnecting
-- ⬜ Opt-in encrypted cloud backup with owner recovery key
+- ✅ LAN first, cloud fallback with the same command id and body; end-to-end against
+  `wrangler dev`: LAN down → one order / one ticket / one print job; the same command over the
+  LAN afterwards changes nothing; POS offline → nothing accepted, delivered once on return
+- ✅ Recovery: a phone app closed with an unsent order sends it once after restart; lost
+  response resolved by lookup; replay ignores duplicate/old events and applies a page in
+  sequence order; a change between snapshot and live connection is not lost; kitchen
+  reconnect does not repeat alarms
+- ✅ Sync status: phone banner (Wi-Fi / cloud / not connected, data age, POS offline from the
+  cloud, restored POS), Sent tab (sync queue with states), Connection details; POS top-bar
+  chip (phones live, cloud state), cloud card (copied up to #, last copy, waiting changes,
+  last error, Copy now)
+- ✅ Restore (`PROTOCOL.md` §5.4): new host epoch, this PC's pairings kept (removed phones stay
+  removed), all sessions ended, phones and cloud off until the owner chooses Reconnect
+  devices; reconnecting re-sends the restored history then `host.restored`, and the cloud
+  drops report rows the restored POS no longer has. Phones hold old-epoch commands for review.
+  End-to-end against `wrangler dev`: 2 bills → restore a backup with 1 → cloud shows 1
+- ✅ Outbox pruning: 7 days; with a cloud, current-epoch events stay until acknowledged
+- ➖ Encrypted cloud backup: **not built — owner decision, 2026-10-11** ("no need of encrypted
+  backup"). Local backups on the PC work as before. The cloud's private backup routes exist
+  but nothing on the POS uploads backups.
 
 ### 7. Hardening, builds, runbooks
-- ⬜ Security and regression tests from spec §12
+- ✅ Spec §12 checks mapped to automated tests (see the run log); added identity separation,
+  replay order, phone restart and snapshot/live race tests
 - ⬜ Android APK and Windows bundle with the new identity
 - ⬜ Setup runbooks, connected test checklist, pilot steps
 
@@ -89,10 +119,11 @@ external dependency · ⬜ not started
 |---|---|
 | `dart format` | clean |
 | `flutter analyze` | no issues |
-| Flutter tests | 204 passed, 0 failed (20 min on a loaded PC; ~1.5 min normally) |
-| Cloud tests | `npm run typecheck` exit 0; `vitest run` 89 passed (9 files) |
+| Flutter tests | see the latest run-log entry |
+| Cloud tests | see the latest run-log entry |
+| Cloud end-to-end (`--dart-define=CAFEDESK_CLOUD_E2E=true test/e2e`, local `wrangler dev`) | 2 passed |
 | Android / Windows builds | not built yet in this repo |
-| Physical devices / printers | not run |
+| Physical devices / printers | not run (none available here) |
 
 ## Run log
 
@@ -125,12 +156,34 @@ external dependency · ⬜ not started
   Miniflare/workerd only. Deviations recorded in `docs/CLOUDFLARE_SETUP.md`: the renamed test
   package `@cloudflare/vitest-plugin`; event pages carry `through` (matches the LAN host);
   stricter session checks (epoch, role from `staff.access_changed`).
+- 2026-10-11 — Phase 4 + connector (commit 919c29b): device modes, waiter and kitchen apps,
+  Connected devices screen, cloud connector and phone cloud route. Fixed on the way: the host
+  now requires `sendToKitchen` (the cloud already did). Cloud end-to-end against local
+  `wrangler dev` passed (relay exactly once, no false acceptance while the POS is offline,
+  sign-in through the relay, cloud report cards equal the POS dashboard).
+- 2026-10-11 — Render tests for every phone/kitchen/device screen at 390 px and 1280 px
+  (no exceptions, overflow or unstyled text). POS UI pass: live phone/cloud chip (replaces the
+  outdated "this device only" chip), in-cart counts on menu buttons, F2/F8/F9 keys, order
+  cards with type/taker/time open, tables with counts and time open. 226 passed, 1 skipped.
+- 2026-10-11 — Phase 6 restore + pruning (commit 89a6dc9). Flutter 231 passed, 2 skipped (the
+  opt-in end-to-end tests, run separately: 2 passed against `wrangler dev`); cloud typecheck
+  exit 0, vitest 91 passed.
+- 2026-10-11 — Owner decided not to build the encrypted cloud backup. Added §12 tests
+  (identity separation, replay order, phone restart with a queued order, snapshot/live race)
+  and the phone's Connection details. Phone replay now sorts a page by sequence before
+  applying it (an out-of-order page could have skipped an update).
 
 ## Assumptions and decisions
 
 - The POS host is a Windows PC (spec §3). Android POS mode stays the offline standalone mode
   and does not serve other devices.
 - The Dart package name stays `cafedesk`; only install/data identities changed.
+- 2026-10-11, owner: no encrypted cloud backup. Backups stay local (as in the offline app).
+  Spec §12 "backups remain private/encrypted" therefore applies to local files only, which are
+  not encrypted (unchanged from the offline app).
+- After a restore, this PC's device pairings are kept rather than the backup's: a phone removed
+  after the backup must not come back, and a phone paired after it keeps working once the
+  owner reconnects.
 
 ## Remaining limitations / open items
 
