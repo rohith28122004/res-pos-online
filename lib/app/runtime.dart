@@ -8,11 +8,13 @@ import 'package:path_provider/path_provider.dart';
 
 import '../core/backup/backup_service.dart';
 import '../core/database/app_database.dart';
+import '../core/host/host_connectivity.dart';
 import '../core/printing/queue/print_queue.dart';
 import '../core/printing/transports/bluetooth_transport.dart';
 import '../core/printing/transports/tcp_transport.dart';
 import '../core/printing/transports/transport.dart';
 import '../core/printing/transports/windows_spooler.dart';
+import '../core/security/secret_store.dart';
 import '../core/service_context.dart';
 import '../core/time/business_time.dart';
 import '../features/audit/application/audit_service.dart';
@@ -51,6 +53,9 @@ class AppPaths {
   File databaseFile(AppMode mode) =>
       File(p.join(root.path, mode == AppMode.demo ? 'cafedesk_online_demo.sqlite' : 'cafedesk_online.sqlite'));
 
+  /// Waiter / kitchen phone data (pairing, drafts, queue, cache).
+  File get deviceDatabaseFile => File(p.join(root.path, 'cafedesk_online_device.sqlite'));
+
   static Future<AppPaths> resolve() async {
     final support = await getApplicationSupportDirectory();
     final root = Directory(p.join(support.path, 'data'));
@@ -71,10 +76,32 @@ class AppPaths {
     try {
       if (!await modeFile.exists()) return null;
       final j = jsonDecode(await modeFile.readAsString()) as Map<String, Object?>;
+      if (j['mode'] == 'device') return null;
       return j['mode'] == 'demo' ? AppMode.demo : AppMode.production;
     } on Object {
       return null;
     }
+  }
+
+  /// True when this install is a waiter or kitchen device, not a POS.
+  Future<bool> isDeviceMode() async {
+    try {
+      if (!await modeFile.exists()) return false;
+      final j = jsonDecode(await modeFile.readAsString()) as Map<String, Object?>;
+      return j['mode'] == 'device';
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<void> writeDeviceMode() async {
+    final tmp = File('.tmp');
+    await tmp.writeAsString(jsonEncode({'mode': 'device'}), flush: true);
+    await tmp.rename(modeFile.path);
+  }
+
+  Future<void> clearMode() async {
+    if (await modeFile.exists()) await modeFile.delete();
   }
 
   Future<void> writeMode(AppMode mode) async {
@@ -151,13 +178,19 @@ Map<TransportType, PrinterTransport> platformTransports() => {
 /// Owns the open database, the print queue and scheduled backups for one
 /// mode. Restore and mode switches close it and build a fresh one.
 class AppRuntime implements DatabaseHost {
-  AppRuntime._(this.paths, this.mode, this._db, this.clock);
+  AppRuntime._(this.paths, this.mode, this._db, this.clock, this.secrets);
 
   final AppPaths paths;
   final AppMode mode;
   final Clock clock;
+
+  /// OS secure storage for the host's private keys and cloud credential.
+  final SecretStore secrets;
   AppDatabase _db;
   late Services services;
+
+  /// LAN server + cloud connector for paired phones (POS host only).
+  late HostConnectivity host;
   PrintQueue? _queue;
   Timer? _backupTimer;
   bool _backupRunning = false;
@@ -174,14 +207,19 @@ class AppRuntime implements DatabaseHost {
   /// Wraps an already-open database (widget tests).
   @visibleForTesting
   static AppRuntime forTesting(AppPaths paths, AppMode mode, AppDatabase db, Clock clock) =>
-      AppRuntime._(paths, mode, db, clock).._buildServices();
+      AppRuntime._(paths, mode, db, clock, MemorySecretStore()).._buildServices();
 
-  static Future<AppRuntime> open(AppPaths paths, AppMode mode, {Clock clock = const SystemClock()}) async {
+  static Future<AppRuntime> open(
+    AppPaths paths,
+    AppMode mode, {
+    Clock clock = const SystemClock(),
+    SecretStore? secrets,
+  }) async {
     final file = paths.databaseFile(mode);
     final db = AppDatabase(openDatabaseFile(file));
     // Force open + migrations now so problems surface at startup.
     await db.customSelect('SELECT 1').get();
-    final rt = AppRuntime._(paths, mode, db, clock);
+    final rt = AppRuntime._(paths, mode, db, clock, secrets ?? SecureSecretStore());
     rt._buildServices();
     if (mode == AppMode.demo) {
       final seeder = DemoSeeder(rt.services.ctx);
@@ -205,6 +243,7 @@ class AppRuntime implements DatabaseHost {
         workDir: paths.work,
       ),
     );
+    host = HostConnectivity(services.ctx, secrets);
   }
 
   /// Starts background work once setup is complete.
@@ -216,6 +255,7 @@ class AppRuntime implements DatabaseHost {
     _backupTimer ??= Timer.periodic(const Duration(minutes: 15), (_) => unawaited(runScheduledBackup()));
     // Catch-up backup shortly after launch.
     unawaited(Future<void>.delayed(const Duration(seconds: 20), runScheduledBackup));
+    await host.start();
   }
 
   Future<void> runScheduledBackup() async {
@@ -242,6 +282,7 @@ class AppRuntime implements DatabaseHost {
   @override
   Future<void> closeDatabase() async {
     _databaseClosed = true;
+    await host.stop();
     await _queue?.stop();
     _queue = null;
     await _db.close();
@@ -259,6 +300,7 @@ class AppRuntime implements DatabaseHost {
   Future<void> dispose() async {
     _backupTimer?.cancel();
     _backupTimer = null;
+    await host.dispose();
     await _queue?.stop();
     _queue = null;
     await _db.close();

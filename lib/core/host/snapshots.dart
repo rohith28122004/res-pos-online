@@ -62,6 +62,17 @@ class HostReads {
           },
       ];
       out['orders'] = [for (final o in open) await views.orderView(o.id)];
+      // Waiters see whether the kitchen has started or finished their orders.
+      final openIds = open.map((o) => o.id).toList();
+      final tickets = openIds.isEmpty
+          ? <KitchenTicketRow>[]
+          : await (_db.select(_db.kitchenTickets)..where((t) => t.orderId.isIn(openIds))).get();
+      final ticketLines = tickets.isEmpty
+          ? <KitchenTicketLineRow>[]
+          : await (_db.select(_db.kitchenTicketLines)..where((l) => l.ticketId.isIn(tickets.map((t) => t.id)))).get();
+      out['tickets'] = [
+        for (final t in tickets) EventViews.ticketViewOf(t, ticketLines.where((l) => l.ticketId == t.id).toList()),
+      ];
     } else {
       final since = ctx.nowMs() - kitchenReadyWindow.inMilliseconds;
       final tickets =

@@ -6,6 +6,7 @@ import '../core/database/app_database.dart';
 import '../core/security/permissions.dart';
 import '../features/settings/application/printer_service.dart';
 import '../features/shifts/application/shift_service.dart';
+import 'device_runtime.dart';
 import 'runtime.dart';
 
 sealed class AppState {
@@ -38,6 +39,12 @@ class AppReady extends AppState {
   final int generation;
 }
 
+/// This install is a waiter phone or kitchen display.
+class AppDevice extends AppState {
+  const AppDevice(this.device);
+  final DeviceRuntime device;
+}
+
 class AppFailed extends AppState {
   const AppFailed(this.error);
   final Object error;
@@ -47,12 +54,14 @@ class AppController extends Notifier<AppState> {
   AppPaths? _paths;
   InstanceLock? _lock;
   AppRuntime? _runtime;
+  DeviceRuntime? _device;
   int _generation = 0;
 
   @override
   AppState build() {
     ref.onDispose(() {
       unawaited(_runtime?.dispose());
+      unawaited(_device?.dispose());
       unawaited(_lock?.release());
     });
     unawaited(Future.microtask(_start));
@@ -67,6 +76,10 @@ class AppController extends Notifier<AppState> {
       _lock = await InstanceLock.acquire(_paths!.lockFile);
       if (_lock == null) {
         state = const AppAlreadyRunning();
+        return;
+      }
+      if (await _paths!.isDeviceMode()) {
+        await _openDevice();
         return;
       }
       final mode = await _paths!.readMode();
@@ -94,6 +107,36 @@ class AppController extends Notifier<AppState> {
     } on Object catch (e) {
       state = AppFailed(e);
     }
+  }
+
+  Future<void> _openDevice() async {
+    state = const AppLoading();
+    try {
+      final d = await DeviceRuntime.open(_paths!);
+      _device = d;
+      await d.sync.start();
+      state = AppDevice(d);
+    } on Object catch (e) {
+      state = AppFailed(e);
+    }
+  }
+
+  /// Use this install as a waiter phone or kitchen display.
+  Future<void> chooseDeviceMode() async {
+    await _paths!.writeDeviceMode();
+    await _openDevice();
+  }
+
+  /// Unpairs and returns to the first screen.
+  Future<void> leaveDeviceMode() async {
+    final d = _device;
+    if (d != null) {
+      await d.sync.unpair();
+      await d.dispose();
+    }
+    _device = null;
+    await _paths!.clearMode();
+    state = const AppChooseMode();
   }
 
   Future<void> chooseMode(AppMode mode) async {
@@ -176,3 +219,10 @@ final printCountsProvider = StreamProvider<PrintQueueCounts>(
 final shiftSummaryProvider = FutureProvider.family<ShiftSummary, String>(
   (ref, id) => ref.watch(servicesProvider).shifts.summary(id),
 );
+
+/// The device runtime (waiter / kitchen mode only).
+final deviceRuntimeProvider = Provider<DeviceRuntime>((ref) {
+  final s = ref.watch(appControllerProvider);
+  if (s is AppDevice) return s.device;
+  throw StateError('Not in device mode');
+});

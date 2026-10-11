@@ -62,6 +62,11 @@ class LiveHostStatus extends LiveMessage {
   final bool connected;
 }
 
+/// Cloud only: one of this phone's relayed commands changed state.
+class LiveCommandNotice extends LiveMessage {
+  const LiveCommandNotice();
+}
+
 /// One way to reach the POS host: the café LAN or the cloud relay. Both carry
 /// the same commands, bodies and ids (docs/PROTOCOL.md).
 abstract class HostRoute {

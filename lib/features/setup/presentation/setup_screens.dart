@@ -11,9 +11,9 @@ import '../../../shared/widgets/common.dart';
 import '../application/setup_service.dart';
 
 const separateInstallNotice =
-    'Each device keeps its own data. A phone and a Windows PC running CaféDesk do NOT share orders or sales — '
-    'there is no live sync. You can move data between devices only by restoring a backup, which replaces '
-    'everything on the receiving device.';
+    'One PC is the main till (POS): it keeps all orders, bills and reports. Waiter phones and kitchen displays '
+    'connect to it over the café Wi-Fi (and through the cloud, if set up) and never keep their own sales. Two '
+    'separate POS installs do NOT share data.';
 
 class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
@@ -35,7 +35,7 @@ class WelcomeScreen extends ConsumerWidget {
                 Text('Welcome to CaféDesk Online', style: t.headlineMedium, textAlign: TextAlign.center),
                 const SizedBox(height: 8),
                 Text(
-                  'Offline billing for cafés and small restaurants. Works without internet.',
+                  'Billing for cafés with waiter phones and a kitchen screen. The till keeps working without internet.',
                   style: t.bodyLarge,
                   textAlign: TextAlign.center,
                 ),
@@ -44,6 +44,12 @@ class WelcomeScreen extends ConsumerWidget {
                   icon: const Icon(Icons.storefront_outlined),
                   label: const Text('Set up my restaurant'),
                   onPressed: () => ref.read(appControllerProvider.notifier).chooseMode(AppMode.production),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.tonalIcon(
+                  icon: const Icon(Icons.phonelink_ring_outlined),
+                  label: const Text('Use as a waiter phone or kitchen display'),
+                  onPressed: () => ref.read(appControllerProvider.notifier).chooseDeviceMode(),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(

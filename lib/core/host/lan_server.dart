@@ -5,67 +5,26 @@ import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 
-import '../../features/devices/application/device_service.dart';
 import '../database/app_database.dart';
 import '../protocol/protocol.dart';
-import '../protocol/sealed.dart';
-import '../service_context.dart';
-import 'approvals.dart';
 import 'command_dispatcher.dart';
-import 'host_keys.dart';
-import 'session_service.dart';
-import 'snapshots.dart';
-
-/// Counts failures per client address; refuses after [limit] in [window].
-class FailureLimiter {
-  FailureLimiter({this.limit = 5, this.window = const Duration(minutes: 1)});
-
-  final int limit;
-  final Duration window;
-  final _failures = <String, List<DateTime>>{};
-
-  Duration? blockedFor(String key, DateTime now) {
-    final list = _failures[key]?..removeWhere((t) => now.difference(t) > window);
-    if (list == null || list.length < limit) return null;
-    return window - now.difference(list.first);
-  }
-
-  void fail(String key, DateTime now) => _failures.putIfAbsent(key, () => []).add(now);
-  void succeed(String key) => _failures.remove(key);
-}
+import 'host_api.dart';
 
 /// The POS host's LAN API (docs/PROTOCOL.md §7): HTTPS + WebSocket with the
 /// self-signed certificate devices pinned at pairing. Every route except
 /// `health` and `pair` needs a device credential; everything except sign-in
-/// also needs a live staff session.
+/// also needs a live staff session. The logic lives in [HostApi], shared with
+/// the cloud relay connector.
 class LanServer {
-  LanServer({
-    required this.ctx,
-    required this.keys,
-    required this.dispatcher,
-    HostSessions? sessions,
-    DeviceService? devices,
-    HostReads? reads,
-  }) : sessions = sessions ?? HostSessions(ctx),
-       devices = devices ?? DeviceService(ctx),
-       reads = reads ?? HostReads(ctx);
+  LanServer(this.api);
 
-  final ServiceContext ctx;
-  final HostKeys keys;
-  final CommandDispatcher dispatcher;
-  final HostSessions sessions;
-  final DeviceService devices;
-  final HostReads reads;
+  final HostApi api;
 
-  ApprovalRegistry get approvals => dispatcher.approvals;
-  AppDatabase get _db => ctx.db;
+  AppDatabase get _db => api.ctx.db;
 
   static const maxBody = 256 * 1024;
-  static const _sealedReplayWindow = Duration(minutes: 10);
   static const _revalidateEvery = Duration(seconds: 60);
 
-  final _limiter = FailureLimiter();
-  final _seenRequestIds = <String, DateTime>{};
   final _sockets = <_DeviceSocket>{};
   HttpServer? _server;
   StreamSubscription<Object?>? _eventsSub;
@@ -78,8 +37,8 @@ class LanServer {
   Future<void> start({int port = 47821, InternetAddress? address}) async {
     if (_server != null) return;
     final context = SecurityContext(withTrustedRoots: false)
-      ..useCertificateChainBytes(utf8.encode(keys.tlsCertPem))
-      ..usePrivateKeyBytes(utf8.encode(keys.tlsKeyPem));
+      ..useCertificateChainBytes(utf8.encode(api.keys.tlsCertPem))
+      ..usePrivateKeyBytes(utf8.encode(api.keys.tlsKeyPem));
     final server = await HttpServer.bindSecure(address ?? InternetAddress.anyIPv4, port, context);
     server.idleTimeout = const Duration(seconds: 30);
     _server = server;
@@ -102,9 +61,15 @@ class LanServer {
 
   // ---- Request handling ---------------------------------------------------------
 
+  String _client(HttpRequest r) => r.connectionInfo?.remoteAddress.address ?? 'unknown';
+
+  Future<RemoteCaller> _authenticate(HttpRequest r) =>
+      api.authenticate(r.headers.value('x-cafedesk-device'), r.headers.value(HttpHeaders.authorizationHeader));
+
   Future<void> _handle(HttpRequest r) async {
     try {
       final path = r.uri.path;
+      final q = r.uri.queryParameters;
       switch ((r.method, path)) {
         case ('GET', '/v1/health'):
           return _json(r, 200, {
@@ -113,42 +78,39 @@ class LanServer {
             'maxProtocolVersion': ProtocolVersion.max,
           });
         case ('POST', '/v1/pair'):
-          return await _pair(r);
+          return _json(r, 200, await api.pair(await _readJson(r), clientKey: _client(r)));
         case ('POST', '/v1/auth/sealed'):
-          return await _sealed(r);
+          api.checkLimit(_client(r));
+          await api.identity();
+          final device = await api.sessions.authenticateDevice(r.headers.value('x-cafedesk-device'));
+          final body = await _readJson(r);
+          if (body is! Map) throw const ProtocolException(ErrorCode.validation, 'Expected a JSON object');
+          return _json(r, 200, await api.sealed(device, body['sealed'], clientKey: _client(r)));
         case ('POST', '/v1/auth/sign-out'):
-          final (_, caller) = await _authenticate(r);
-          await sessions.signOut(caller);
+          await api.signOut(await _authenticate(r));
           return _json(r, 200, {'ok': true});
         case ('GET', '/v1/snapshot'):
-          final (_, caller) = await _authenticate(r);
-          final scope = caller.deviceRole == DeviceRole.kitchen ? 'kitchen' : 'waiter';
-          if ((r.uri.queryParameters['scope'] ?? scope) != scope) {
-            throw const ProtocolException(ErrorCode.forbidden, 'This device cannot read that view');
-          }
-          return _json(r, 200, await reads.snapshot(scope));
+          return _json(r, 200, await api.snapshot(await _authenticate(r), q['scope']));
         case ('POST', '/v1/commands'):
-          final (_, caller) = await _authenticate(r);
-          final body = await _readJson(r);
-          final result = await dispatcher.handle(caller, body);
-          return _json(r, 200, result.toJson());
+          final caller = await _authenticate(r);
+          return _json(r, 200, (await api.command(caller, await _readJson(r))).toJson());
         case ('GET', '/v1/events'):
           await _authenticate(r);
-          final epoch = int.tryParse(r.uri.queryParameters['epoch'] ?? '') ?? 0;
-          final after = int.tryParse(r.uri.queryParameters['after'] ?? '') ?? 0;
-          final limit = (int.tryParse(r.uri.queryParameters['limit'] ?? '') ?? 200).clamp(1, 500);
-          return _json(r, 200, await reads.eventsAfter(epoch, after, limit: limit));
+          return _json(
+            r,
+            200,
+            await api.events(
+              int.tryParse(q['epoch'] ?? '') ?? 0,
+              int.tryParse(q['after'] ?? '') ?? 0,
+              limit: int.tryParse(q['limit'] ?? '') ?? 200,
+            ),
+          );
         case ('GET', '/v1/socket'):
           return await _socket(r);
       }
       if (r.method == 'GET' && path.startsWith('/v1/commands/')) {
-        final (_, caller) = await _authenticate(r);
-        final id = path.substring('/v1/commands/'.length);
-        final found = await dispatcher.lookup(caller, id);
-        if (found == null) {
-          throw const ProtocolException(ErrorCode.notFound, 'The POS has no record of this command');
-        }
-        return _json(r, 200, found.toJson());
+        final caller = await _authenticate(r);
+        return _json(r, 200, (await api.lookup(caller, path.substring('/v1/commands/'.length))).toJson());
       }
       throw const ProtocolException(ErrorCode.notFound, 'Unknown route');
     } on ProtocolException catch (e) {
@@ -159,148 +121,13 @@ class LanServer {
     }
   }
 
-  Future<(PairedDeviceRow, RemoteCaller)> _authenticate(HttpRequest r) async {
-    final identity = await _identity();
-    final device = await sessions.authenticateDevice(r.headers.value('x-cafedesk-device'));
-    final caller = await sessions.authenticateSession(
-      device,
-      r.headers.value(HttpHeaders.authorizationHeader),
-      identity,
-    );
-    return (device, caller);
-  }
-
-  Future<HostIdentityRow> _identity() async {
-    final identity = await _db.select(_db.hostIdentity).getSingleOrNull();
-    if (identity == null) {
-      throw const ProtocolException(ErrorCode.forbidden, 'This POS is not set up for connected devices');
-    }
-    if (identity.reconcileRequired) {
-      throw const ProtocolException(
-        ErrorCode.epochChanged,
-        'The POS was restored from a backup. The owner must reconnect devices on the POS first.',
-      );
-    }
-    return identity;
-  }
-
-  String _client(HttpRequest r) => r.connectionInfo?.remoteAddress.address ?? 'unknown';
-
-  void _checkLimit(HttpRequest r) {
-    final wait = _limiter.blockedFor(_client(r), ctx.now());
-    if (wait != null) {
-      throw ProtocolException(
-        ErrorCode.rateLimited,
-        'Too many attempts. Wait a minute and try again.',
-        details: {'retryAfterMs': wait.inMilliseconds},
-      );
-    }
-  }
-
-  Future<void> _pair(HttpRequest r) async {
-    _checkLimit(r);
-    final identity = await _identity();
-    final body = await _readJson(r);
-    if (body is! Map) throw const ProtocolException(ErrorCode.validation, 'Expected a JSON object');
-    final j = body.cast<String, Object?>();
-    final version = j['protocolVersion'];
-    if (version is! int || !ProtocolVersion.supported(version)) {
-      throw const ProtocolException(
-        ErrorCode.updateRequired,
-        'Update CaféDesk Online on this device',
-        details: {'min': ProtocolVersion.min, 'max': ProtocolVersion.max},
-      );
-    }
-    final PairingResult result;
-    try {
-      result = await devices.redeem(
-        code: requireString(j, 'pairingCode', maxLength: 100),
-        deviceName: requireString(j, 'deviceName', maxLength: 40),
-        platform: optionalString(j, 'platform', maxLength: 40),
-        appVersion: optionalString(j, 'appVersion', maxLength: 40),
-      );
-    } on ProtocolException catch (e) {
-      if (e.code == ErrorCode.unauthenticated) _limiter.fail(_client(r), ctx.now());
-      rethrow;
-    }
-    _limiter.succeed(_client(r));
-    return _json(r, 200, {
-      'deviceId': result.deviceId,
-      'deviceCredential': result.credential,
-      'role': result.role,
-      'restaurantId': identity.restaurantId,
-      'hostDeviceId': identity.hostDeviceId,
-      'hostEpoch': identity.hostEpoch,
-      'hostSigningPublicKey': identity.signingPublicKey,
-      'hostSealPublicKey': identity.sealPublicKey,
-      'cloudUrl': identity.cloudUrl,
-      'restaurantName': (await ctx.settings()).name,
-    });
-  }
-
-  Future<void> _sealed(HttpRequest r) async {
-    _checkLimit(r);
-    final identity = await _identity();
-    final device = await sessions.authenticateDevice(r.headers.value('x-cafedesk-device'));
-    final body = await _readJson(r);
-    if (body is! Map) throw const ProtocolException(ErrorCode.validation, 'Expected a JSON object');
-    final response = await handleSealed(device, identity, body['sealed'], clientKey: _client(r));
-    return _json(r, 200, response);
-  }
-
-  /// Opens and runs a sealed request. Shared by the LAN route and the cloud
-  /// relay (the cloud forwards the same sealed box).
-  Future<Map<String, Object?>> handleSealed(
-    PairedDeviceRow device,
-    HostIdentityRow identity,
-    Object? sealed, {
-    required String clientKey,
-  }) async {
-    final req = await Sealed.open(sealed, hostSealKey: keys.sealKey, deviceId: device.id);
-    final requestId = requireId(req, 'requestId');
-    final now = ctx.now();
-    _seenRequestIds.removeWhere((_, t) => now.difference(t) > _sealedReplayWindow);
-    if (_seenRequestIds.containsKey(requestId)) {
-      throw const ProtocolException(ErrorCode.unauthenticated, 'This request was already used');
-    }
-    _seenRequestIds[requestId] = now;
-    final email = requireString(req, 'email', maxLength: 254);
-    final password = requireString(req, 'password', maxLength: 128);
-    try {
-      switch (req['kind']) {
-        case 'sign_in':
-          final s = await sessions.signIn(device, email, password, identity, keys);
-          _limiter.succeed(clientKey);
-          return {
-            'sessionToken': s.token,
-            'expiresAt': s.expiresAt,
-            'staff': {'staffId': s.actor.staffId, 'name': s.actor.name, 'role': s.actor.role.name},
-          };
-        case 'approve':
-          final approval = await sessions.approve(email, password);
-          final id = approvals.grant(approval, device.id);
-          _limiter.succeed(clientKey);
-          return {
-            'approvalId': id,
-            'ownerName': approval.ownerName,
-            'expiresAt': approval.issuedAt.millisecondsSinceEpoch + const Duration(minutes: 5).inMilliseconds,
-          };
-        default:
-          throw const ProtocolException(ErrorCode.validation, 'Unknown sealed request');
-      }
-    } on ProtocolException catch (e) {
-      if (e.code == ErrorCode.unauthenticated) _limiter.fail(clientKey, ctx.now());
-      rethrow;
-    }
-  }
-
   // ---- WebSocket ----------------------------------------------------------------
 
   Future<void> _socket(HttpRequest r) async {
     if (!WebSocketTransformer.isUpgradeRequest(r)) {
       throw const ProtocolException(ErrorCode.validation, 'WebSocket upgrade expected');
     }
-    final (device, caller) = await _authenticate(r);
+    final caller = await _authenticate(r);
     final epoch = int.tryParse(r.uri.queryParameters['epoch'] ?? '') ?? 0;
     final after = int.tryParse(r.uri.queryParameters['after'] ?? '') ?? 0;
     // Closed by _DeviceSocket.close() or when the device disconnects.
@@ -309,7 +136,6 @@ class LanServer {
     ws.pingInterval = const Duration(seconds: 20);
     final s = _DeviceSocket(
       ws,
-      device.id,
       caller,
       epoch,
       after,
@@ -324,18 +150,15 @@ class LanServer {
       cancelOnError: true,
     );
     s.revalidate = Timer.periodic(_revalidateEvery, (_) => unawaited(_revalidate(s)));
-    final identity = await _identity();
-    s.send({'t': 'hello', 'hostEpoch': identity.hostEpoch, 'latestSequence': await _latestSequence()});
+    final identity = await api.identity();
+    final latest = (await api.events(0, 0, limit: 1))['through']! as int;
+    s.send({'t': 'hello', 'hostEpoch': identity.hostEpoch, 'latestSequence': latest});
     await _pushTo(s);
   }
 
-  Future<int> _latestSequence() async => (await reads.eventsAfter(0, 0, limit: 1))['through']! as int;
-
   Future<void> _revalidate(_DeviceSocket s) async {
     try {
-      final identity = await _identity();
-      final device = await sessions.authenticateDevice(s.deviceHeader);
-      await sessions.authenticateSession(device, s.authorization, identity);
+      await api.authenticate(s.deviceHeader, s.authorization);
     } on ProtocolException catch (e) {
       await s.close(4401, e.code);
       _sockets.remove(s);
@@ -357,7 +180,7 @@ class LanServer {
     try {
       do {
         s.pushAgain = false;
-        final page = await reads.eventsAfter(s.epoch, s.cursor);
+        final page = await api.events(s.epoch, s.cursor);
         if (page['snapshotRequired'] == true) {
           s.send({'t': 'snapshot_required', 'hostEpoch': page['hostEpoch']});
           s.epoch = page['hostEpoch']! as int;
@@ -383,7 +206,7 @@ class LanServer {
   // ---- JSON helpers ---------------------------------------------------------------
 
   Future<Object?> _readJson(HttpRequest r) async {
-    if ((r.contentLength) > maxBody) {
+    if (r.contentLength > maxBody) {
       throw const ProtocolException(ErrorCode.tooLarge, 'Request is too large');
     }
     final bytes = BytesBuilder(copy: false);
@@ -419,7 +242,6 @@ class LanServer {
 class _DeviceSocket {
   _DeviceSocket(
     this.ws,
-    this.deviceId,
     this.caller,
     this.epoch,
     this.cursor, {
@@ -428,7 +250,6 @@ class _DeviceSocket {
   });
 
   final WebSocket ws;
-  final String deviceId;
   final RemoteCaller caller;
   int epoch;
   int cursor;

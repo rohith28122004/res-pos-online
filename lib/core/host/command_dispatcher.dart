@@ -393,9 +393,10 @@ class CommandDispatcher {
     );
   }
 
+  /// Required (true or false), exactly as the cloud relay checks it, so a
+  /// command is valid on both routes or on neither.
   static bool _sendFlag(Map<String, Object?> p) {
     final v = p['sendToKitchen'];
-    if (v == null) return true;
     if (v is! bool) throw const ProtocolException(ErrorCode.validation, 'sendToKitchen must be true or false');
     return v;
   }

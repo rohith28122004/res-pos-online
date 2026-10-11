@@ -51,14 +51,20 @@ class LinkStatus {
   final String? problem;
   final bool? hostConnectedToCloud;
 
-  LinkStatus copyWith({String? route, bool? live, int? lastLiveAt, String? problem, bool clearProblem = false}) =>
-      LinkStatus(
-        route: route ?? this.route,
-        live: live ?? this.live,
-        lastLiveAt: lastLiveAt ?? this.lastLiveAt,
-        problem: clearProblem ? null : (problem ?? this.problem),
-        hostConnectedToCloud: hostConnectedToCloud,
-      );
+  LinkStatus copyWith({
+    String? route,
+    bool? live,
+    int? lastLiveAt,
+    String? problem,
+    bool clearProblem = false,
+    bool? hostConnectedToCloud,
+  }) => LinkStatus(
+    route: route ?? this.route,
+    live: live ?? this.live,
+    lastLiveAt: lastLiveAt ?? this.lastLiveAt,
+    problem: clearProblem ? null : (problem ?? this.problem),
+    hostConnectedToCloud: hostConnectedToCloud ?? this.hostConnectedToCloud,
+  );
 }
 
 /// The phone side of CaféDesk Online: pairing, sign-in, the cached view of the
@@ -373,6 +379,8 @@ class DeviceSync {
       for (final t in (snap['tickets'] as List?) ?? const []) {
         final m = (t! as Map).cast<String, Object?>();
         await put('ticket:${m['ticketId']}', 'ticket', m);
+        // Alarms are for kitchen displays only.
+        if (l.role != 'kitchen') continue;
         // First load: tickets already on the board are recorded silently.
         // After an outage: tickets created while away still sound once.
         final known = await (db.select(
@@ -616,8 +624,14 @@ class DeviceSync {
         } else {
           await catchUp();
         }
-      case LiveHostStatus():
-        break;
+      case LiveHostStatus(:final connected):
+        _setStatus(_current.copyWith(hostConnectedToCloud: connected));
+      case LiveCommandNotice():
+        // A relayed command has news: look it up now rather than after backoff.
+        await (db.update(db.pendingCommands)..where((c) => c.state.equals(CommandState.relayed))).write(
+          const PendingCommandsCompanion(nextAttemptAt: Value(0)),
+        );
+        _bg(deliverNow);
     }
   }
 

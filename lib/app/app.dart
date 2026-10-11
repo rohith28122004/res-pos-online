@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/auth/presentation/lock_screen.dart';
+import '../features/devices/presentation/device_app.dart';
 import '../features/setup/presentation/setup_screens.dart';
 import '../shared/widgets/common.dart';
 import 'providers.dart';
@@ -20,6 +21,7 @@ class CafeDeskApp extends ConsumerWidget {
       AppChooseMode() => const WelcomeScreen(),
       AppNeedsSetup() => const SetupWizard(),
       AppReady(:final generation) => _Authenticated(key: ValueKey(generation)),
+      AppDevice() => const DeviceApp(),
       AppFailed(:final error) => Scaffold(
         body: ErrorView(error: error, onRetry: () => ref.read(appControllerProvider.notifier).retry()),
       ),

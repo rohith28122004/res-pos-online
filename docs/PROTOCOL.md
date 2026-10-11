@@ -175,8 +175,8 @@ showed (paise); at most **50** lines per command.
 
 | Action | aggregateId | expectedRevision | Payload | Result |
 |---|---|---|---|---|
-| `order.place` | null | null | `{orderType:"dine_in"\|"takeaway", tableId?, guestCount?, note?, lines:[Line], sendToKitchen:true}` | `{orderId, orderNo, orderRef, revision, ticketId?, ticketNo?, estimatedTotal}` |
-| `order.add` | orderId | optional (null = append) | `{lines:[Line], sendToKitchen:true}` | same as above |
+| `order.place` | null | null | `{orderType:"dine_in"\|"takeaway", tableId?, guestCount?, note?, lines:[Line], sendToKitchen:bool}` (sendToKitchen required) | `{orderId, orderNo, orderRef, revision, ticketId?, ticketNo?, estimatedTotal}` |
+| `order.add` | orderId | optional (null = append) | `{lines:[Line], sendToKitchen:bool}` (required) | same as above |
 | `order.change_quantity` | orderId | **required** | `{lineId, quantity, reason?, approvalId?}` | `{orderId, revision, ticketId?}` |
 | `order.send_to_kitchen` | orderId | null | `{}` | `{orderId, revision, ticketId?, ticketNo?}` |
 | `ticket.set_status` | ticketId | **required** | `{status:"preparing"\|"ready"}` | `{ticketId, status, revision}` |

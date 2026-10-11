@@ -14,6 +14,7 @@ import '../../audit/presentation/audit_screen.dart';
 import '../../setup/presentation/setup_screens.dart';
 import '../../tables/presentation/tables_screen.dart';
 import '../application/settings_service.dart';
+import '../../devices/presentation/connected_devices_screen.dart';
 import 'backup_screen.dart';
 import 'printers_screen.dart';
 
@@ -49,6 +50,12 @@ class SettingsScreen extends ConsumerWidget {
           'Taxes',
           'Tax profiles (off until you set them up)',
           () => open(const TaxProfilesScreen()),
+        ),
+        _tile(
+          Icons.phonelink_ring_outlined,
+          'Connected devices',
+          'Waiter phones, kitchen displays and the cloud relay',
+          () => open(const ConnectedDevicesScreen()),
         ),
         _tile(
           Icons.print_outlined,

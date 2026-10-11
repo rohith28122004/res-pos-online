@@ -183,6 +183,7 @@ void main() {
         aggregateId: orderId,
         payload: {
           'lines': [line(coffee, 4000)],
+          'sendToKitchen': true,
         },
       ),
     );
@@ -290,6 +291,7 @@ void main() {
       payload: {
         'orderType': 'takeaway',
         'lines': [line(coffee, 4000)],
+        'sendToKitchen': true,
       },
     );
     expect((await thrown(d.handle(asKitchenStaffOnPhone, kitchenPlace))).code, ErrorCode.forbidden);
@@ -302,6 +304,7 @@ void main() {
       payload: {
         'orderType': 'takeaway',
         'lines': [line(coffee, 4000)],
+        'sendToKitchen': true,
       },
     );
     expect((await thrown(d.handle(asWaiter(), forged))).code, ErrorCode.forbidden);
@@ -314,6 +317,7 @@ void main() {
       payload: {
         'orderType': 'takeaway',
         'lines': [line(coffee, 4000)],
+        'sendToKitchen': true,
       },
     );
     expect((await thrown(d.handle(asWaiter(), otherDevice))).code, ErrorCode.forbidden);
@@ -357,6 +361,7 @@ void main() {
         aggregateId: orderId,
         payload: {
           'lines': [line(coffee, 4000)],
+          'sendToKitchen': true,
         },
       ),
     );

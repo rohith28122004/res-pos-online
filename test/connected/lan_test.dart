@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cafedesk/core/errors/app_exception.dart';
 import 'package:cafedesk/core/host/command_dispatcher.dart';
+import 'package:cafedesk/core/host/host_api.dart';
 import 'package:cafedesk/core/host/host_identity.dart';
 import 'package:cafedesk/core/host/host_keys.dart';
 import 'package:cafedesk/core/host/lan_server.dart';
@@ -39,7 +40,7 @@ void main() {
     hostSecrets = MemorySecretStore();
     final identityService = HostIdentityService(h.ctx, hostSecrets);
     final (_, keys) = await identityService.ensure(h.owner);
-    server = LanServer(ctx: h.ctx, keys: keys, dispatcher: CommandDispatcher(h.ctx));
+    server = LanServer(HostApi(ctx: h.ctx, keys: keys, dispatcher: CommandDispatcher(h.ctx)));
     await server.start(port: 0, address: InternetAddress.loopbackIPv4);
     await identityService.setLan(h.owner, enabled: true, port: server.port);
     final cat = await h.category('Coffee');
@@ -268,6 +269,7 @@ void main() {
       payload: {
         'orderType': 'takeaway',
         'lines': [line(coffee, 4000)],
+        'sendToKitchen': true,
       },
       summary: 'Takeaway: 1 item',
     );
@@ -329,6 +331,7 @@ void main() {
       payload: {
         'orderType': 'takeaway',
         'lines': [line(coffee, 4000)],
+        'sendToKitchen': true,
       },
       summary: 'Takeaway',
     );
@@ -369,6 +372,7 @@ void main() {
       payload: {
         'orderType': 'takeaway',
         'lines': [line(coffee, 4000)],
+        'sendToKitchen': true,
       },
       summary: 'Takeaway',
     );
@@ -377,7 +381,7 @@ void main() {
     expect(row.state, CommandState.queued, reason: 'saved on the phone, POS unreachable');
     h.clock.advance(const Duration(minutes: 31));
     final keys = await HostIdentityService(h.ctx, hostSecrets).ensure(h.owner);
-    server = LanServer(ctx: h.ctx, keys: keys.$2, dispatcher: CommandDispatcher(h.ctx));
+    server = LanServer(HostApi(ctx: h.ctx, keys: keys.$2, dispatcher: CommandDispatcher(h.ctx)));
     await server.start(
       port: (await HostIdentityService(h.ctx, hostSecrets).current())!.lanPort,
       address: InternetAddress.loopbackIPv4,
@@ -403,6 +407,7 @@ void main() {
       payload: {
         'orderType': 'takeaway',
         'lines': [line(coffee, 4000)],
+        'sendToKitchen': true,
       },
       summary: 'Takeaway',
     );
@@ -414,7 +419,7 @@ void main() {
     );
     await phone.signOut();
     final keys = await HostIdentityService(h.ctx, hostSecrets).ensure(h.owner);
-    server = LanServer(ctx: h.ctx, keys: keys.$2, dispatcher: CommandDispatcher(h.ctx));
+    server = LanServer(HostApi(ctx: h.ctx, keys: keys.$2, dispatcher: CommandDispatcher(h.ctx)));
     await server.start(
       port: (await HostIdentityService(h.ctx, hostSecrets).current())!.lanPort,
       address: InternetAddress.loopbackIPv4,
