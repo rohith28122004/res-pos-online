@@ -139,8 +139,8 @@ external dependency · ⬜ not started
     Kitchen tile, kitchen displays say "switched off", kitchen invites refused, waiters get
     **To prepare** (POS and phone) and mark orders ready; the POS enforces it
     (`OrderService.canUpdateTickets`, dispatcher check for waiter phones).
-- 🟡 Cloud: waiter `ticket.set_status` + `settings.changed` relay — tested locally, deployed
-  (see run log)
+- 🟡 Cloud: waiter `ticket.set_status` + `settings.changed` relay — tested locally (93 passed);
+  **not deployed yet** (waits for the owner, see run log)
 
 ## Builds and checks (latest run)
 
@@ -241,11 +241,32 @@ external dependency · ⬜ not started
   production D1 (label "E2E remote check"): `01a1291d-e9ea-7f54-98a2-70c61b46aeeb`,
   `01a1291e-35d4-71e6-b192-5c358c91edbf`.
 
+- 2026-10-11 — **Clearer screens per role, no demo, kitchen on/off** (owner request; section 8).
+  Kitchen on/off = commit 5631c89 (schema v5, POS + cloud checks); screens = cb36a8e. Checks:
+  `dart format` clean, `flutter analyze` no issues; Flutter (via `scripts/test-local.ps1`,
+  see BUILD_AND_RELEASE.md) **249 passed, 6 skipped** (opt-in end-to-end + screenshots), then
+  device screens 24/24 with the new kitchen-off tests; cloud `npm test` **93 passed**,
+  typecheck clean. New `integration_test/first_run_test.dart` **passed on the Android emulator**
+  (`cafedesk_phone`, x86_64 debug): fresh install → Main till → setup → Admin account →
+  shift → takeaway sale → bill saved, in a temporary folder. The emulator's old demo data was
+  checked first (demo only); the test run uninstalls the app, so the debug build was installed
+  again afterwards. Screenshots (opt-in tool) now include the till as Admin / waiter / kitchen
+  and the waiter phone's To prepare tab. Android arm64 TEST APK rebuilt (profile):
+  `dist\CafeDeskOnline-1.0.0+1-android-arm64-TEST-profile-cb36a8e.apk`, 73,749,243 bytes,
+  SHA-256 `aacc4eab…795ebc19` (full hash in `.sha256`); package `com.cafedesk.online`.
+  **Cloud not yet redeployed**: the deploy was stopped by the session's safety check and
+  waits for the owner's go-ahead. Until then a waiter phone can mark orders ready over the café
+  Wi-Fi, but not through the cloud (the live relay still refuses that for waiters), and the
+  kitchen switch reaches phones on their next refresh rather than at once when they are on
+  the cloud route.
+
 ## Assumptions and decisions
 
 - The POS host is a Windows PC (spec §3). Android POS mode stays the offline standalone mode
   and does not serve other devices.
 - The Dart package name stays `cafedesk`; only install/data identities changed.
+- 2026-10-11, owner: no demo café or built-in accounts; Admin home with big buttons; kitchen
+  can be switched off (waiters prepare).
 - 2026-10-11, owner: no encrypted cloud backup. Backups stay local (as in the offline app).
   Spec §12 "backups remain private/encrypted" therefore applies to local files only, which are
   not encrypted (unchanged from the offline app).

@@ -6,15 +6,21 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:cafedesk/app/device_runtime.dart';
+import 'package:cafedesk/app/runtime.dart';
+import 'package:cafedesk/app/shell.dart';
 import 'package:cafedesk/app/providers.dart';
 import 'package:cafedesk/app/theme.dart';
 import 'package:cafedesk/core/protocol/protocol.dart';
+import 'package:cafedesk/core/security/permissions.dart';
 import 'package:cafedesk/core/security/secret_store.dart';
 import 'package:cafedesk/core/sync/client_database.dart';
 import 'package:cafedesk/core/sync/device_sync.dart';
 import 'package:cafedesk/core/time/business_time.dart';
+import 'package:cafedesk/features/bills/domain/payment_method.dart';
 import 'package:cafedesk/features/devices/presentation/device_providers.dart';
 import 'package:cafedesk/features/kitchen/presentation/kitchen_board_screen.dart';
+import 'package:cafedesk/features/orders/domain/order_models.dart';
+import 'package:cafedesk/features/tables/application/table_service.dart';
 import 'package:cafedesk/features/waiter/presentation/order_builder.dart';
 import 'package:cafedesk/features/waiter/presentation/waiter_home.dart';
 import 'package:drift/drift.dart' show Value, driftRuntimeOptions;
@@ -24,6 +30,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+
+import '../support/harness.dart';
 
 /// Renders the waiter and kitchen screens with real fonts on sample café data
 /// and saves PNGs to `build/screenshots/` — to show the app without a phone,
@@ -137,7 +145,7 @@ void main() {
     'quantityDelta': qty,
   };
 
-  Future<(ClientDatabase, DeviceSync)> cafe({required String role}) async {
+  Future<(ClientDatabase, DeviceSync)> cafe({required String role, bool kitchenEnabled = true}) async {
     driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
     final db = openInMemoryClientDatabase();
     final sync = DeviceSync(db: db, secrets: MemorySecretStore(), clock: const SystemClock());
@@ -150,7 +158,7 @@ void main() {
             role: role,
             deviceName: role == 'kitchen' ? 'Kitchen tablet' : "Wendy's phone",
             restaurantId: 'r1',
-            restaurantName: 'Demo Café',
+            restaurantName: 'Green Leaf Café',
             hostDeviceId: 'h1',
             hostEpoch: 1,
             hostAddressesJson: '["192.168.1.10"]',
@@ -187,7 +195,7 @@ void main() {
       'variants': const [],
       'modifiers': const [],
     };
-    await put('meta', 'meta', {'restaurantName': 'Demo Café', 'hostEpoch': 1});
+    await put('meta', 'meta', {'restaurantName': 'Green Leaf Café', 'hostEpoch': 1, 'kitchenEnabled': kitchenEnabled});
     await put('menu', 'menu', {
       'categories': [
         {'categoryId': 'coffee', 'name': 'Coffee'},
@@ -330,31 +338,20 @@ void main() {
     return (db, sync);
   }
 
-  Future<void> shot(
+  /// Draws [screen] with real shadows and saves it as build/screenshots/[name].png.
+  Future<void> capture(
     WidgetTester tester,
     String name,
-    Widget screen, {
-    required String role,
-    Size size = const Size(390, 844),
-    double ratio = 2,
+    Widget screen,
+    ProviderContainer container, {
+    required Size size,
+    required double ratio,
     Future<void> Function()? before,
   }) async {
-    late ClientDatabase db;
-    late DeviceSync sync;
-    await tester.runAsync(() async => (db, sync) = await cafe(role: role));
     // flutter_test draws shadows as solid outlines by default; show real ones.
     debugDisableShadows = false;
     tester.view.physicalSize = size * ratio;
     tester.view.devicePixelRatio = ratio;
-    final container = ProviderContainer(
-      overrides: [
-        deviceRuntimeProvider.overrideWithValue(DeviceRuntime.forTesting(db, sync)),
-        // The banner as it looks on the café Wi-Fi (no POS here to connect to).
-        linkStatusProvider.overrideWith(
-          (ref) => Stream.value(LinkStatus(live: true, route: 'lan', lastLiveAt: now)),
-        ),
-      ],
-    );
     final boundary = GlobalKey();
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -394,7 +391,97 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
     }
+  }
+
+  Future<void> shot(
+    WidgetTester tester,
+    String name,
+    Widget screen, {
+    required String role,
+    Size size = const Size(390, 844),
+    double ratio = 2,
+    bool kitchenEnabled = true,
+    Future<void> Function()? before,
+  }) async {
+    late ClientDatabase db;
+    late DeviceSync sync;
+    await tester.runAsync(() async => (db, sync) = await cafe(role: role, kitchenEnabled: kitchenEnabled));
+    final container = ProviderContainer(
+      overrides: [
+        deviceRuntimeProvider.overrideWithValue(DeviceRuntime.forTesting(db, sync)),
+        // The banner as it looks on the café Wi-Fi (no POS here to connect to).
+        linkStatusProvider.overrideWith(
+          (ref) => Stream.value(LinkStatus(live: true, route: 'lan', lastLiveAt: now)),
+        ),
+      ],
+    );
+    await capture(tester, name, screen, container, size: size, ratio: ratio, before: before);
     await tester.runAsync(() => db.close());
+  }
+
+  /// The main till (POS) signed in as [role], on a small sample café.
+  Future<void> posShot(
+    WidgetTester tester,
+    String name,
+    StaffRole role, {
+    Size size = const Size(1280, 800),
+    double ratio = 1.5,
+    bool kitchenEnabled = true,
+    Future<void> Function()? before,
+  }) async {
+    late Harness h;
+    late AppRuntime rt;
+    late Actor actor;
+    await tester.runAsync(() async {
+      h = await Harness.create(start: DateTime.now().toUtc());
+      final coffee = await h.category('Coffee');
+      final snacks = await h.category('Snacks');
+      final filter = await h.item(coffee, 'Filter coffee', 4000);
+      final chai = await h.item(coffee, 'Masala chai', 3000);
+      final puff = await h.item(snacks, 'Veg puff', 2500);
+      final sandwich = await h.item(snacks, 'Paneer sandwich', 16000);
+      final tables = TableService(h.ctx);
+      final ids = [for (var i = 1; i <= 8; i++) await tables.createTable(h.owner, name: 'T$i', capacity: 4)];
+      await h.openShift();
+      await h.pay(await h.orderWith({filter: 2, puff: 2}), [
+        const TenderInput(method: PaymentMethod.cash, applied: 13000, tendered: 20000),
+      ]);
+      await h.pay(await h.orderWith({sandwich: 1, chai: 2}), [
+        const TenderInput(method: PaymentMethod.upi, applied: 22000),
+      ]);
+      final t2 = await h.orderWith({filter: 2, sandwich: 1}, type: OrderType.dineIn, tableId: ids[1]);
+      await h.orders.sendToKitchen(h.cashier, t2, operationId: 'k-t2');
+      final t5 = await h.orderWith({chai: 3, puff: 3}, type: OrderType.dineIn, tableId: ids[4]);
+      await h.orders.sendToKitchen(h.cashier, t5, operationId: 'k-t5');
+      final first = (await h.db.select(h.db.kitchenTickets).get()).first;
+      await h.orders.setTicketStatus(h.kitchen, first.id, TicketStatus.preparing);
+      if (!kitchenEnabled) await h.settings.setKitchenEnabled(h.owner, enabled: false);
+      actor = switch (role) {
+        StaffRole.waiter => Actor(
+          staffId: await h.auth.createStaff(
+            h.owner,
+            name: 'Wendy Waiter',
+            email: 'wendy@test.cafe',
+            role: StaffRole.waiter,
+            password: 'waiter-pass-1',
+            mustChangePassword: false,
+          ),
+          name: 'Wendy Waiter',
+          role: StaffRole.waiter,
+        ),
+        StaffRole.kitchen => h.kitchen,
+        StaffRole.cashier => h.cashier,
+        StaffRole.owner => h.owner,
+      };
+      final dir = Directory.systemTemp.createTempSync('cafedesk_shots');
+      rt = AppRuntime.forTesting(AppPaths(dir, dir), h.db, h.clock);
+    });
+    final container = ProviderContainer(
+      overrides: [runtimeProvider.overrideWithValue(rt), servicesProvider.overrideWithValue(rt.services)],
+    );
+    container.read(sessionProvider.notifier).login(actor);
+    await capture(tester, name, const AppShell(), container, size: size, ratio: ratio, before: before);
+    await tester.runAsync(() => h.dispose());
   }
 
   const skip = _enabled ? null : 'set --dart-define=CAFEDESK_SCREENSHOTS=true to write screenshots';
@@ -423,6 +510,33 @@ void main() {
       role: 'waiter',
       before: () => tester.tap(find.text('Sent')),
     );
+  }, skip: skip != null);
+
+  testWidgets('waiter phone: to prepare (no kitchen)', (tester) async {
+    addTearDown(tester.view.reset);
+    await shot(
+      tester,
+      'waiter_4_to_prepare_no_kitchen',
+      const WaiterHomeScreen(),
+      role: 'waiter',
+      kitchenEnabled: false,
+      before: () => tester.tap(find.text('To prepare')),
+    );
+  }, skip: skip != null);
+
+  testWidgets('till: admin home', (tester) async {
+    addTearDown(tester.view.reset);
+    await posShot(tester, 'till_1_admin_home', StaffRole.owner);
+  }, skip: skip != null);
+
+  testWidgets('till: waiter signed in (phone size)', (tester) async {
+    addTearDown(tester.view.reset);
+    await posShot(tester, 'till_2_waiter', StaffRole.waiter, size: const Size(390, 844), ratio: 2);
+  }, skip: skip != null);
+
+  testWidgets('till: kitchen board', (tester) async {
+    addTearDown(tester.view.reset);
+    await posShot(tester, 'till_3_kitchen', StaffRole.kitchen);
   }, skip: skip != null);
 
   testWidgets('kitchen display (tablet)', (tester) async {
