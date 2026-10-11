@@ -399,7 +399,7 @@ restaurant ID in a body or URL is only compared, never trusted.
 | Method & path | Auth | Purpose |
 |---|---|---|
 | `GET /health` | none | `{ok, minProtocolVersion, maxProtocolVersion}` |
-| `POST /enroll` | single-use enrollment code (issued by the operator) | `{enrollmentCode, restaurantName, hostDeviceId, hostSigningPublicKey, hostSealPublicKey, appVersion}` → `{restaurantId, hostCredential}` |
+| `POST /enroll` | single-use enrollment code (issued by the operator) | `{enrollmentCode, restaurantId, restaurantName, hostDeviceId, hostSigningPublicKey, hostSealPublicKey, appVersion}` → `{restaurantId, hostCredential}`. The host proposes the restaurant ID it already uses on the LAN; an ID that is already enrolled → 409 `CONFLICT` |
 | `POST /host/credential/rotate` | host | → `{hostCredential}` (old one stops working) |
 | `GET /host/sync-state` | host | `{currentEpoch, epochs:[{epoch, startSequence, nextSequence}]}` |
 | `POST /host/epoch` | host | `{epoch, startSequence, reason}` — open a new epoch after a restore; queued commands of older epochs become `QUARANTINED` |

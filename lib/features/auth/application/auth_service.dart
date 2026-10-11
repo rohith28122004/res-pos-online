@@ -154,6 +154,15 @@ class AuthService {
     return OwnerApproval(ownerId: row.id, ownerName: row.name, issuedAt: ctx.now());
   }
 
+  /// Owner approval given on a paired phone: the owner types their email and
+  /// password there (sent sealed to this POS).
+  Future<OwnerApproval> approveByEmail(String email, String password) async {
+    final e = email.trim().toLowerCase();
+    final row = e.isEmpty ? null : await (_db.select(_db.staff)..where((s) => s.email.equals(e))).getSingleOrNull();
+    if (row == null) throw const ValidationException(_wrongLogin);
+    return approveAsOwner(row.id, password);
+  }
+
   /// Owner creates an account. By default the person must choose their own
   /// password at their first sign-in.
   Future<String> createStaff(

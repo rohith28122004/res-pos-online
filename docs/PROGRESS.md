@@ -22,8 +22,8 @@ external dependency · ⬜ not started
 
 ### 2. Protocol, waiter role, migrations, command dispatcher, outbox
 - ✅ `docs/PROTOCOL.md` v1; `lib/core/protocol/` (canonical JSON, command/result/error types)
-- 🟡 Canonical JSON cross-check with the cloud: Dart side tested; the shared vectors test is
-  skipped until `protocol/vectors/canonical_hash.json` exists (cloud work in progress)
+- ✅ Canonical JSON cross-check: `protocol/vectors/canonical_hash.json` (17 cases) passes in Dart
+  and in the cloud tests
 - ✅ Waiter role: takes orders only; any discount needs owner approval; service/delivery
   charges need the new `discount` permission; no payment, refund, staff or reports
 - ✅ Schema v4 (`from3To4`): host identity (one row), paired devices, pairing codes, staff
@@ -37,11 +37,23 @@ external dependency · ⬜ not started
   check; one ticket and one KOT print job per command; forward-only kitchen status
 
 ### 3. LAN host, pairing, sessions, client persistence
-- ⬜ Host keys and self-signed TLS certificate; private keys in OS secure storage
-- ⬜ HTTPS + WebSocket LAN server, every route authenticated, limits and rate limits
-- ⬜ Single-use, short-lived pairing codes / QR bound to role; revocable device credentials
-- ⬜ Host-signed staff sessions; sealed (end-to-end encrypted) sign-in and owner approval
-- ⬜ Client database (pairing, drafts, command outbox, cache, cursor) and connection status
+- ✅ Host keys (`lib/core/host/host_keys.dart`): self-signed EC P-256 TLS certificate, Ed25519
+  signing key, X25519 seal key; private parts only in OS secure storage (`SecretStore`)
+- ✅ LAN server (`lib/core/host/lan_server.dart`): HTTPS + WebSocket, pinned certificate,
+  every route but health/pair authenticated (device credential + live, host-signed staff
+  session), 256 KiB body cap, 50-line cap, per-address limits on pairing and sign-in,
+  sockets re-checked every 60 s
+- ✅ Pairing (`lib/features/devices/application/device_service.dart`): single-use codes, 10
+  minutes, bound to role, hashed; device credentials stored only as hashes; revocation ends
+  sessions at once; `device.paired`/`device.revoked` events for the cloud
+- ✅ Staff sessions (`lib/core/host/session_service.dart`): 12-hour Ed25519-signed tokens checked
+  against live rows; role must fit the device; sealed (X25519 + AES-GCM) sign-in and owner
+  approval so passwords are readable only by the POS
+- ✅ Device side: own database (`lib/core/sync/client_database.dart`, schema v1), pinned LAN
+  client, sync engine (`lib/core/sync/device_sync.dart`): snapshot + cursor + live events,
+  durable command queue (same id on every retry, lookup before resend, backoff with jitter,
+  30-minute review rule, per-person isolation), one alarm per kitchen ticket, link status
+- ⬜ Windows firewall / Android network notes (with the runbooks, phase 7)
 
 ### 4. Waiter → host → kitchen flow
 - ⬜ Device modes POS / Waiter / Kitchen
@@ -72,7 +84,7 @@ external dependency · ⬜ not started
 |---|---|
 | `dart format` | clean |
 | `flutter analyze` | no issues |
-| Flutter tests | 193: 192 passed, 1 skipped (shared vectors file pending) |
+| Flutter tests | 204 passed, 0 failed (20 min on a loaded PC; ~1.5 min normally) |
 | Cloud tests | not started |
 | Android / Windows builds | not built yet in this repo |
 | Physical devices / printers | not run |
@@ -93,6 +105,16 @@ external dependency · ⬜ not started
   actor/epoch, version and malformed bodies; canonical JSON) and a populated v3 → v4 upgrade
   test. Two older migration tests now migrate to the latest schema (services need it).
   `flutter analyze` no issues; 192 passed, 1 skipped.
+- 2026-10-11 — Phase 3: host keys/TLS, LAN server, pairing, sessions, sealed requests, device
+  database and sync engine. `test/connected/lan_test.dart` runs a real TLS server on
+  localhost with real phone clients: single-use/expiring pairing, hashed credentials, sealed
+  sign-in, wrong password/role/must-change refused, every route authenticated (missing
+  credential, no session, forged token, wrong secret, other device's credential, disabled
+  staff, revoked device), wrong certificate refused, rate limits, live kitchen board with one
+  alarm across reconnects, revision-checked status updates, lost response resolved by lookup,
+  30-minute review rule, per-person command isolation. Found and fixed: concurrent
+  `deliverNow()` calls returned before the run finished; background work could outlive
+  `dispose()`. 204 tests passed.
 
 ## Assumptions and decisions
 

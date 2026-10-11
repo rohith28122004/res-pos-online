@@ -5,6 +5,7 @@ targets:
         options:
           databases:
             cafedesk: lib/core/database/app_database.dart
+            client: lib/core/sync/client_database.dart
           schema_dir: drift_schemas/
           test_dir: test/database/generated_migrations/
           store_date_time_values_as_text: false

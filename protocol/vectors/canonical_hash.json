@@ -1,0 +1,204 @@
+[
+  {
+    "name": "empty object",
+    "input": {},
+    "canonical": "{}",
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  {
+    "name": "empty array",
+    "input": [],
+    "canonical": "[]",
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "name": "null",
+    "input": null,
+    "canonical": "null",
+    "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+  },
+  {
+    "name": "booleans",
+    "input": [
+      true,
+      false
+    ],
+    "canonical": "[true,false]",
+    "sha256": "153c9dbcc7025ecd7e50ce6d83f1995233dfc636bc869098e3a8d84288fd938a"
+  },
+  {
+    "name": "integers including negative and the largest safe integers",
+    "input": [
+      0,
+      -1,
+      42,
+      -42,
+      450000,
+      9007199254740991,
+      -9007199254740991
+    ],
+    "canonical": "[0,-1,42,-42,450000,9007199254740991,-9007199254740991]",
+    "sha256": "5773c674acf88a88b39a1915f45f9244d546675c278be6dfced7abf377347dc6"
+  },
+  {
+    "name": "array order is preserved",
+    "input": [
+      3,
+      1,
+      2
+    ],
+    "canonical": "[3,1,2]",
+    "sha256": "51bda7ab4e44726cde71fcb6e4b515357059bb6b6dd5146d1fc50f73f11678c6"
+  },
+  {
+    "name": "ASCII key order: digits, uppercase, underscore, lowercase",
+    "input": {
+      "1": 6,
+      "b": 1,
+      "a": 2,
+      "B": 3,
+      "A": 4,
+      "_": 5
+    },
+    "canonical": "{\"1\":6,\"A\":4,\"B\":3,\"_\":5,\"a\":2,\"b\":1}",
+    "sha256": "e31dd223c7aba5b818b86d57863e94cfe5edb9b9f26d6018b56ee8098186fa67"
+  },
+  {
+    "name": "non-ASCII keys sort by UTF-16 code units (emoji before U+FF5A)",
+    "input": {
+      "z": 1,
+      "é": 2,
+      "₹": 3,
+      "a": 4,
+      "😀": 5,
+      "ｚ": 6
+    },
+    "canonical": "{\"a\":4,\"z\":1,\"é\":2,\"₹\":3,\"😀\":5,\"ｚ\":6}",
+    "sha256": "eb72789f0a51e808489863abc89d1abdd55d74ebf014741d83f75a1003261d7f"
+  },
+  {
+    "name": "nested objects and arrays",
+    "input": {
+      "order": {
+        "lines": [
+          {
+            "qty": 2,
+            "item": "Coffee"
+          },
+          {
+            "qty": 1,
+            "item": "Cake"
+          }
+        ],
+        "id": "o1"
+      },
+      "v": 1
+    },
+    "canonical": "{\"order\":{\"id\":\"o1\",\"lines\":[{\"item\":\"Coffee\",\"qty\":2},{\"item\":\"Cake\",\"qty\":1}]},\"v\":1}",
+    "sha256": "c3ea78aa0de1aee411524e76ed02cc2e4902409da8b247ae3e4d8c62397f38c6"
+  },
+  {
+    "name": "quotes, backslashes, slash and whitespace escapes",
+    "input": {
+      "s": "quote \" backslash \\ slash / tab \t newline \n cr \r"
+    },
+    "canonical": "{\"s\":\"quote \\\" backslash \\\\ slash / tab \\t newline \\n cr \\r\"}",
+    "sha256": "1109431a9150fb696b8d1576153bd3f7c1dee5a3aacfe807c58142a9fa5d9428"
+  },
+  {
+    "name": "control characters (short escapes where JSON has them, else lower-case \\u00xx; DEL raw)",
+    "input": [
+      "\u0000\u0001\b\u000b\f\u001f"
+    ],
+    "canonical": "[\"\\u0000\\u0001\\b\\u000b\\f\\u001f\"]",
+    "sha256": "e95fdbb4e34af331c7598fd6d628dfab97ccc5333409284992e824bb72e36483"
+  },
+  {
+    "name": "non-ASCII and emoji are not escaped",
+    "input": {
+      "name": "Café ₹45 ☕ 😀 नमस्ते"
+    },
+    "canonical": "{\"name\":\"Café ₹45 ☕ 😀 नमस्ते\"}",
+    "sha256": "1ffb65dd3e0326d20d9c63ffef57923ebc58d2d6389c36d2575e4efe49eaeb96"
+  },
+  {
+    "name": "U+2028 and U+2029 are not escaped",
+    "input": [
+      "a b c"
+    ],
+    "canonical": "[\"a b c\"]",
+    "sha256": "e18d93d18cd23554beaf820ca40a699f23a13291ace1142e622bf4c6506c9ebd"
+  },
+  {
+    "name": "empty key and empty string",
+    "input": {
+      "": ""
+    },
+    "canonical": "{\"\":\"\"}",
+    "sha256": "86cfeee6df382a203f626305afbca44d228cac67acd151ccf2db29530c548fea"
+  },
+  {
+    "name": "null and boolean values inside objects",
+    "input": {
+      "variantId": null,
+      "sendToKitchen": true,
+      "archived": false
+    },
+    "canonical": "{\"archived\":false,\"sendToKitchen\":true,\"variantId\":null}",
+    "sha256": "85a32cce117f09891e3aa176270fb8e04d130d4fa7784521e205bd7972d547f2"
+  },
+  {
+    "name": "command envelope",
+    "input": {
+      "protocolVersion": 1,
+      "commandId": "0193f6a2-7c1e-7d4b-9f00-000000000001",
+      "restaurantId": "6f1c2a9e-0000-4000-8000-000000000001",
+      "deviceId": "d1",
+      "staffId": "s1",
+      "hostEpoch": 1,
+      "action": "order.place",
+      "aggregateId": null,
+      "expectedRevision": null,
+      "issuedAt": 1760000000000,
+      "payload": {
+        "orderType": "dine_in",
+        "tableId": "t4",
+        "lines": [
+          {
+            "itemId": "coffee",
+            "variantId": null,
+            "modifierIds": [],
+            "quantity": 2,
+            "note": "less sugar",
+            "expectedUnitPrice": 4500
+          }
+        ],
+        "sendToKitchen": true
+      }
+    },
+    "canonical": "{\"action\":\"order.place\",\"aggregateId\":null,\"commandId\":\"0193f6a2-7c1e-7d4b-9f00-000000000001\",\"deviceId\":\"d1\",\"expectedRevision\":null,\"hostEpoch\":1,\"issuedAt\":1760000000000,\"payload\":{\"lines\":[{\"expectedUnitPrice\":4500,\"itemId\":\"coffee\",\"modifierIds\":[],\"note\":\"less sugar\",\"quantity\":2,\"variantId\":null}],\"orderType\":\"dine_in\",\"sendToKitchen\":true,\"tableId\":\"t4\"},\"protocolVersion\":1,\"restaurantId\":\"6f1c2a9e-0000-4000-8000-000000000001\",\"staffId\":\"s1\"}",
+    "sha256": "b822c49a90fe2f70df32e6c24173a6408930077fcae80a857d738e938cda9f77"
+  },
+  {
+    "name": "event envelope",
+    "input": {
+      "protocolVersion": 1,
+      "eventId": "0193f6a2-7c1e-7d4b-9f00-0000000000e1",
+      "hostEpoch": 1,
+      "sequence": 1234,
+      "type": "ticket.updated",
+      "aggregateType": "kitchen_ticket",
+      "aggregateId": "k31",
+      "revision": 3,
+      "committedAtUtc": 1760000000500,
+      "businessDate": "2026-10-11",
+      "payload": {
+        "ticketId": "k31",
+        "status": "ready",
+        "revision": 3
+      }
+    },
+    "canonical": "{\"aggregateId\":\"k31\",\"aggregateType\":\"kitchen_ticket\",\"businessDate\":\"2026-10-11\",\"committedAtUtc\":1760000000500,\"eventId\":\"0193f6a2-7c1e-7d4b-9f00-0000000000e1\",\"hostEpoch\":1,\"payload\":{\"revision\":3,\"status\":\"ready\",\"ticketId\":\"k31\"},\"protocolVersion\":1,\"revision\":3,\"sequence\":1234,\"type\":\"ticket.updated\"}",
+    "sha256": "ae4f4737bdd55225220af822e0946c29ac73b5801c8bbbf3c6462ae8452ad6c9"
+  }
+]
