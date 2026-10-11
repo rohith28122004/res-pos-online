@@ -10,6 +10,7 @@ import 'package:cafedesk/features/orders/domain/order_models.dart';
 import 'package:cafedesk/features/orders/presentation/pos_screen.dart';
 import 'package:cafedesk/shared/widgets/common.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -155,8 +156,18 @@ void main() {
     await tester.tap(menuItem('Masala chai'));
     await _settle(tester);
     expect(find.text('Pay ₹110.00'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(GridView), matching: find.text('2')),
+      findsOneWidget,
+      reason: 'the menu button shows how many are in the cart',
+    );
 
-    await tester.tap(find.text('Pay ₹110.00'));
+    // Keyboard till: F8 sends to the kitchen, F9 opens payment.
+    expect(find.text('Send to kitchen (3)'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f8);
+    await _settle(tester);
+    expect(find.text('Kitchen up to date'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f9);
     await _settle(tester);
     expect(find.text('Amount due'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, '200');

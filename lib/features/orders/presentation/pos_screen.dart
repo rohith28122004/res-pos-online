@@ -47,12 +47,14 @@ class PosScreen extends ConsumerStatefulWidget {
 
 class _PosScreenState extends ConsumerState<PosScreen> {
   final _save = SaveStatus();
+  final _searchFocus = FocusNode(debugLabel: 'menu search');
   late final Stream<OrderDetail> _orderStream = ref.read(servicesProvider).orders.watchOrder(widget.orderId);
   late final Stream<MenuData> _menuStream = ref.read(servicesProvider).menu.watchMenu();
 
   @override
   void dispose() {
     _save.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -63,6 +65,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       showError(context, '${item.name} is sold out');
       return;
     }
+    unawaited(HapticFeedback.selectionClick());
     if (item.needsOptions) {
       final choice = await showItemOptions(context, item);
       if (choice == null || !mounted) return;
@@ -109,31 +112,81 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             ),
           );
         }
-        final menu = MenuPanel(stream: _menuStream, onItem: addItem, autofocusSearch: wide);
-        final cart = CartPanel(detail: detail, save: _save);
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(detail.reference),
-            actions: [_SaveIndicator(status: _save)],
+        final menu = MenuPanel(
+          stream: _menuStream,
+          onItem: addItem,
+          autofocusSearch: wide,
+          searchFocus: _searchFocus,
+          inCart: detail.quantitiesByItem,
+          showShortcuts: wide,
+        );
+        final cart = CartPanel(detail: detail, save: _save, showShortcuts: wide);
+        // Keyboard shortcuts for the Windows till; they work while typing in
+        // the menu search too.
+        return CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.f2): _searchFocus.requestFocus,
+            const SingleActivator(LogicalKeyboardKey.f8, includeRepeats: false): () {
+              if (detail.unsentCount > 0 && !_save.saving) unawaited(sendOrderToKitchen(context, ref, detail, _save));
+            },
+            const SingleActivator(LogicalKeyboardKey.f9, includeRepeats: false): () {
+              if (detail.canPay) unawaited(openCheckout(context, detail));
+            },
+          },
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(detail.reference),
+              actions: [_SaveIndicator(status: _save)],
+            ),
+            body: wide
+                ? Row(
+                    children: [
+                      Expanded(flex: 3, child: menu),
+                      const VerticalDivider(width: 1),
+                      SizedBox(width: MediaQuery.sizeOf(context).width >= 1300 ? 460 : 400, child: cart),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      Expanded(child: menu),
+                      _CartSummaryBar(detail: detail, save: _save),
+                    ],
+                  ),
           ),
-          body: wide
-              ? Row(
-                  children: [
-                    Expanded(flex: 3, child: menu),
-                    const VerticalDivider(width: 1),
-                    SizedBox(width: MediaQuery.sizeOf(context).width >= 1300 ? 460 : 400, child: cart),
-                  ],
-                )
-              : Column(
-                  children: [
-                    Expanded(child: menu),
-                    _CartSummaryBar(detail: detail, save: _save),
-                  ],
-                ),
         );
       },
     );
   }
+}
+
+extension on OrderDetail {
+  /// Quantity in the cart per menu item, for the badges on the menu buttons.
+  Map<String, int> get quantitiesByItem {
+    final out = <String, int>{};
+    for (final l in activeLines) {
+      final id = l.row.itemId;
+      if (id != null) out[id] = (out[id] ?? 0) + l.row.quantity;
+    }
+    return out;
+  }
+
+  int get unsentCount => lines.fold<int>(0, (a, l) => a + (l.unsentQuantity > 0 ? l.unsentQuantity : 0));
+
+  bool get canPay => pricing != null && activeLines.isNotEmpty;
+}
+
+Future<void> openCheckout(BuildContext context, OrderDetail detail) => Navigator.of(
+  context,
+).push(MaterialPageRoute<void>(builder: (_) => CheckoutScreen(orderId: detail.order.id)));
+
+Future<void> sendOrderToKitchen(BuildContext context, WidgetRef ref, OrderDetail detail, SaveStatus save) async {
+  final services = ref.read(servicesProvider);
+  final op = services.ctx.ids.newId();
+  final id = await save.run(
+    context,
+    () => services.orders.sendToKitchen(requireActor(ref), detail.order.id, operationId: op),
+  );
+  if (id != null && context.mounted) showInfo(context, 'Sent to kitchen');
 }
 
 class _SaveIndicator extends StatelessWidget {
@@ -231,10 +284,23 @@ class _PhoneCartPage extends ConsumerWidget {
 // ---- Menu -------------------------------------------------------------------
 
 class MenuPanel extends StatefulWidget {
-  const MenuPanel({super.key, required this.stream, required this.onItem, this.autofocusSearch = false});
+  const MenuPanel({
+    super.key,
+    required this.stream,
+    required this.onItem,
+    this.autofocusSearch = false,
+    this.searchFocus,
+    this.inCart = const {},
+    this.showShortcuts = false,
+  });
   final Stream<MenuData> stream;
   final Future<void> Function(MenuItemView item) onItem;
   final bool autofocusSearch;
+  final FocusNode? searchFocus;
+
+  /// Quantity already in the cart per menu item id.
+  final Map<String, int> inCart;
+  final bool showShortcuts;
 
   @override
   State<MenuPanel> createState() => _MenuPanelState();
@@ -274,10 +340,13 @@ class _MenuPanelState extends State<MenuPanel> {
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
             child: TextField(
               controller: _search,
+              focusNode: widget.searchFocus,
               autofocus: widget.autofocusSearch,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
-                hintText: 'Search menu (name, code, category)',
+                hintText: widget.showShortcuts
+                    ? 'Search menu (F2) · Enter adds the first match'
+                    : 'Search menu (name, code, category)',
                 suffixIcon: _query.isEmpty
                     ? null
                     : IconButton(
@@ -337,7 +406,11 @@ class _MenuPanelState extends State<MenuPanel> {
                       mainAxisSpacing: 8,
                     ),
                     itemCount: items.length,
-                    itemBuilder: (context, i) => _MenuButton(item: items[i], onTap: () => widget.onItem(items[i])),
+                    itemBuilder: (context, i) => _MenuButton(
+                      item: items[i],
+                      inCart: widget.inCart[items[i].id] ?? 0,
+                      onTap: () => widget.onItem(items[i]),
+                    ),
                   ),
           ),
         ],
@@ -347,22 +420,26 @@ class _MenuPanelState extends State<MenuPanel> {
 }
 
 class _MenuButton extends StatelessWidget {
-  const _MenuButton({required this.item, required this.onTap});
+  const _MenuButton({required this.item, required this.onTap, this.inCart = 0});
   final MenuItemView item;
   final VoidCallback onTap;
+  final int inCart;
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final soldOut = !item.available;
+    final added = inCart > 0 && !soldOut;
     return Semantics(
       button: true,
-      label: '${item.name}, ${soldOut ? 'sold out' : formatMoney(item.fromPrice)}',
+      label: '${item.name}, ${soldOut ? 'sold out' : formatMoney(item.fromPrice)}${added ? ', $inCart in cart' : ''}',
       child: Material(
-        color: soldOut ? const Color(0xFFEDE9E3) : Colors.white,
+        color: soldOut ? const Color(0xFFEDE9E3) : (added ? const Color(0xFFF0F7F6) : Colors.white),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFFE6DED3)),
+          side: added
+              ? const BorderSide(color: AppColors.accent, width: 1.5)
+              : const BorderSide(color: Color(0xFFE6DED3)),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -373,11 +450,33 @@ class _MenuButton extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(
-                    item.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: t.titleSmall?.copyWith(color: soldOut ? Colors.black45 : null),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: t.titleSmall?.copyWith(color: soldOut ? Colors.black45 : null),
+                        ),
+                      ),
+                      if (added)
+                        ExcludeSemantics(
+                          child: Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '$inCart',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 Row(
@@ -525,9 +624,12 @@ class _ItemOptionsSheetState extends State<_ItemOptionsSheet> {
 // ---- Cart ---------------------------------------------------------------------
 
 class CartPanel extends ConsumerWidget {
-  const CartPanel({super.key, required this.detail, required this.save});
+  const CartPanel({super.key, required this.detail, required this.save, this.showShortcuts = false});
   final OrderDetail detail;
   final SaveStatus save;
+
+  /// Mentions the F8 / F9 keys (keyboard tills).
+  final bool showShortcuts;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -536,7 +638,7 @@ class CartPanel extends ConsumerWidget {
     final pricing = detail.pricing;
     final t = Theme.of(context).textTheme;
     final pricedByKey = {for (final p in pricing?.lines ?? const <PricedLine>[]) p.key: p};
-    final unsent = detail.lines.fold<int>(0, (a, l) => a + (l.unsentQuantity > 0 ? l.unsentQuantity : 0));
+    final unsent = detail.unsentCount;
     final order = detail.order;
 
     Future<void> changeQty(OrderLineView l, int q) async {
@@ -723,24 +825,24 @@ class CartPanel extends ConsumerWidget {
           child: Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.soup_kitchen_outlined),
-                  label: Text(unsent > 0 ? 'Send to kitchen ($unsent)' : 'Kitchen up to date'),
-                  onPressed: unsent == 0 ? null : () => _sendKot(context, ref),
+                child: _shortcutHint(
+                  'Send new items to the kitchen (F8)',
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.soup_kitchen_outlined),
+                    label: Text(unsent > 0 ? 'Send to kitchen ($unsent)' : 'Kitchen up to date'),
+                    onPressed: unsent == 0 ? null : () => sendOrderToKitchen(context, ref, detail, save),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: FilledButton.icon(
-                  icon: const Icon(Icons.payments_outlined),
-                  label: Text(pricing == null ? 'Pay' : 'Pay ${formatMoney(pricing.total)}'),
-                  onPressed: pricing == null || detail.activeLines.isEmpty
-                      ? null
-                      : () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => CheckoutScreen(orderId: detail.order.id),
-                          ),
-                        ),
+                child: _shortcutHint(
+                  'Take payment (F9)',
+                  FilledButton.icon(
+                    icon: const Icon(Icons.payments_outlined),
+                    label: Text(pricing == null ? 'Pay' : 'Pay ${formatMoney(pricing.total)}'),
+                    onPressed: detail.canPay ? () => openCheckout(context, detail) : null,
+                  ),
                 ),
               ),
             ],
@@ -750,15 +852,7 @@ class CartPanel extends ConsumerWidget {
     );
   }
 
-  Future<void> _sendKot(BuildContext context, WidgetRef ref) async {
-    final services = ref.read(servicesProvider);
-    final op = services.ctx.ids.newId();
-    final id = await save.run(
-      context,
-      () => services.orders.sendToKitchen(requireActor(ref), detail.order.id, operationId: op),
-    );
-    if (id != null && context.mounted) showInfo(context, 'Sent to kitchen');
-  }
+  Widget _shortcutHint(String message, Widget child) => showShortcuts ? Tooltip(message: message, child: child) : child;
 
   Future<void> _lineAction(BuildContext context, WidgetRef ref, OrderLineView l, String action) async {
     final services = ref.read(servicesProvider);

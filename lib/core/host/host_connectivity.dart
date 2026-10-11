@@ -15,6 +15,28 @@ import 'lan_server.dart';
 /// (CONNECTED_BUILD_SPEC §3); an Android POS stays a standalone till.
 bool get platformCanHost => Platform.isWindows || Platform.environment.containsKey('FLUTTER_TEST');
 
+/// A snapshot of the POS host's connections, for status displays.
+class HostStatus {
+  const HostStatus({
+    this.lanRunning = false,
+    this.liveDevices = 0,
+    this.problem,
+    this.cloudEnrolled = false,
+    this.cloudConnected = false,
+  });
+
+  final bool lanRunning;
+
+  /// Phones and kitchen displays with a live connection over the café Wi-Fi.
+  final int liveDevices;
+  final String? problem;
+  final bool cloudEnrolled;
+  final bool cloudConnected;
+
+  /// Nothing is set up: this PC is a standalone till.
+  bool get standalone => !lanRunning && problem == null && !cloudEnrolled;
+}
+
 /// Runs the POS host's LAN server and cloud connector while the POS is open.
 /// Closing the app stops them: phones then show "POS not reachable".
 class HostConnectivity {
@@ -26,6 +48,7 @@ class HostConnectivity {
   HostApi? _api;
   LanServer? _lan;
   CloudConnector? _cloud;
+  StreamSubscription<CloudStatus>? _cloudSub;
   String? _lanError;
   bool _started = false;
   final _changes = StreamController<void>.broadcast();
@@ -40,7 +63,21 @@ class HostConnectivity {
   /// Why the LAN server is not running when it should be (port in use,
   /// missing keys, restore pending…), in plain words.
   String? get lanError => _lanError;
+
+  /// Fires when the server starts or stops, a device connects or disconnects,
+  /// or the cloud connection changes.
   Stream<void> get changes => _changes.stream;
+
+  HostStatus get status {
+    final cloud = _cloud?.currentStatus;
+    return HostStatus(
+      lanRunning: lanRunning,
+      liveDevices: _lan?.connectedSockets ?? 0,
+      problem: _lanError,
+      cloudEnrolled: cloud?.enrolled ?? false,
+      cloudConnected: cloud?.socketConnected ?? false,
+    );
+  }
 
   void _changed() {
     if (!_changes.isClosed) _changes.add(null);
@@ -73,7 +110,7 @@ class HostConnectivity {
     );
     _api = api;
     if (identity.lanEnabled) {
-      final lan = LanServer(api);
+      final lan = LanServer(api)..onSocketsChanged = _changed;
       try {
         await lan.start(port: identity.lanPort);
         _lan = lan;
@@ -86,6 +123,7 @@ class HostConnectivity {
     if (identity.cloudUrl != null) {
       final cloud = CloudConnector(api: api, secrets: secrets);
       _cloud = cloud;
+      _cloudSub = cloud.status.listen((_) => _changed());
       await cloud.start();
     }
     _changed();
@@ -95,6 +133,8 @@ class HostConnectivity {
     _started = false;
     await _lan?.stop();
     _lan = null;
+    await _cloudSub?.cancel();
+    _cloudSub = null;
     await _cloud?.dispose();
     _cloud = null;
     _api = null;

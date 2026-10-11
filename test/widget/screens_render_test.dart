@@ -15,11 +15,13 @@ import 'package:cafedesk/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:cafedesk/features/menu/application/menu_service.dart';
 import 'package:cafedesk/features/orders/domain/order_models.dart';
 import 'package:cafedesk/features/orders/presentation/pos_screen.dart';
+import 'package:cafedesk/features/orders/presentation/sell_screen.dart';
 import 'package:cafedesk/features/refunds/presentation/refund_screen.dart';
 import 'package:cafedesk/features/settings/presentation/backup_screen.dart';
 import 'package:cafedesk/features/settings/presentation/printers_screen.dart';
 import 'package:cafedesk/features/settings/presentation/settings_screen.dart';
 import 'package:cafedesk/features/tables/application/table_service.dart';
+import 'package:cafedesk/features/tables/presentation/tables_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -143,6 +145,8 @@ void main() {
   final screens = <String, Widget Function()>{
     'shell (owner)': () => const AppShell(),
     'lock screen': () => const LockScreen(),
+    'sell': () => const Scaffold(body: SellScreen()),
+    'tables': () => const Scaffold(body: TablesScreen()),
     'POS': () => PosScreen(orderId: openOrder),
     'checkout': () => CheckoutScreen(orderId: openOrder),
     'bill detail': () => BillDetailScreen(billId: billId),

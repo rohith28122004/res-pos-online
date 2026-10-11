@@ -25,6 +25,9 @@ String errorText(Object e) => switch (e) {
   _ => 'Something went wrong: $e',
 };
 
+/// Snackbars span phones but stay readable-width on tablets and PCs.
+double? _snackWidth(BuildContext context) => MediaQuery.sizeOf(context).width >= 700 ? 480 : null;
+
 void showError(BuildContext context, Object e) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
@@ -33,6 +36,7 @@ void showError(BuildContext context, Object e) {
         content: Text(errorText(e)),
         backgroundColor: AppColors.danger,
         behavior: SnackBarBehavior.floating,
+        width: _snackWidth(context),
         duration: const Duration(seconds: 6),
       ),
     );
@@ -41,7 +45,9 @@ void showError(BuildContext context, Object e) {
 void showInfo(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message), behavior: SnackBarBehavior.floating));
+    ..showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating, width: _snackWidth(context)),
+    );
 }
 
 /// Runs [action], showing failures as a snackbar. Returns null on failure.

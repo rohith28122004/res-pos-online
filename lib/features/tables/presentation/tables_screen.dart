@@ -17,36 +17,55 @@ class TablesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final services = ref.watch(servicesProvider);
     final actor = ref.watch(sessionProvider)!;
-    return Column(
-      children: [
-        if (actor.can(Permission.manageTables))
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                const Expanded(child: Text('Free/occupied comes from open orders.')),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Edit tables'),
-                  onPressed: () =>
-                      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TablesAdminScreen())),
-                ),
-              ],
+    final editButton = actor.can(Permission.manageTables)
+        ? OutlinedButton.icon(
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Edit tables'),
+            onPressed: () =>
+                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TablesAdminScreen())),
+          )
+        : null;
+    return StreamView<List<TableStatus>>(
+      stream: services.tables.watchTableStatus(),
+      builder: (context, tables) {
+        if (tables.isEmpty) {
+          return EmptyState(
+            icon: Icons.table_restaurant_outlined,
+            title: 'No tables yet',
+            message:
+                'Tables are optional. Owners can add them with "Edit tables". Takeaway and delivery work without tables.',
+            action: editButton,
+          );
+        }
+        final busy = tables.where((t) => t.occupied).length;
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      StatusChip(
+                        label: '${tables.length - busy} free',
+                        color: AppColors.success,
+                        icon: Icons.event_seat_outlined,
+                      ),
+                      StatusChip(label: '$busy occupied', color: AppColors.warning, icon: Icons.people_alt_outlined),
+                    ],
+                  ),
+                  ?editButton,
+                ],
+              ),
             ),
-          ),
-        Expanded(
-          child: StreamView<List<TableStatus>>(
-            stream: services.tables.watchTableStatus(),
-            builder: (context, tables) {
-              if (tables.isEmpty) {
-                return const EmptyState(
-                  icon: Icons.table_restaurant_outlined,
-                  title: 'No tables yet',
-                  message:
-                      'Tables are optional. Owners can add them with "Edit tables". Takeaway and delivery work without tables.',
-                );
-              }
-              return GridView.builder(
+            Expanded(
+              child: GridView.builder(
                 padding: const EdgeInsets.all(12),
                 gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                   maxCrossAxisExtent: 180,
@@ -55,40 +74,54 @@ class TablesScreen extends ConsumerWidget {
                   mainAxisSpacing: 12,
                 ),
                 itemCount: tables.length,
-                itemBuilder: (context, i) {
-                  final t = tables[i];
-                  final color = t.occupied ? AppColors.warning : AppColors.success;
-                  return Card(
-                    color: t.occupied ? const Color(0xFFFFF4E0) : Colors.white,
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => t.occupied
-                          ? openPos(context, t.openOrderId!)
-                          : startOrder(context, ref, OrderType.dineIn, tableId: t.table.id),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(t.table.name, style: Theme.of(context).textTheme.titleLarge),
-                            if (t.table.capacity != null) Text('${t.table.capacity} seats'),
-                            const Spacer(),
-                            StatusChip(
-                              label: t.occupied ? 'Occupied · #${t.openOrderNo}' : 'Free',
-                              color: color,
-                              icon: t.occupied ? Icons.people_alt_outlined : Icons.event_seat_outlined,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
+                itemBuilder: (context, i) => _TableTile(status: tables[i]),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TableTile extends ConsumerWidget {
+  const _TableTile({required this.status});
+  final TableStatus status;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = status;
+    final text = Theme.of(context).textTheme;
+    final since = t.openSince == null
+        ? null
+        : DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(t.openSince!)).inMinutes;
+    return Card(
+      color: t.occupied ? const Color(0xFFFFF4E0) : Colors.white,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => t.occupied
+            ? openPos(context, t.openOrderId!)
+            : startOrder(context, ref, OrderType.dineIn, tableId: t.table.id),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(t.table.name, style: text.titleLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (t.occupied && since != null)
+                Text('Open ${since < 0 ? 0 : since} min', style: text.bodyMedium?.copyWith(color: Colors.black54))
+              else if (t.table.capacity != null)
+                Text('${t.table.capacity} seats', style: text.bodyMedium?.copyWith(color: Colors.black54)),
+              const Spacer(),
+              StatusChip(
+                label: t.occupied ? 'Occupied · #${t.openOrderNo}' : 'Free',
+                color: t.occupied ? AppColors.warning : AppColors.success,
+                icon: t.occupied ? Icons.people_alt_outlined : Icons.event_seat_outlined,
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

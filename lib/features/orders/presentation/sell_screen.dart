@@ -76,14 +76,20 @@ class _OrderCard extends StatelessWidget {
   const _OrderCard({required this.summary});
   final OpenOrderSummary summary;
 
+  /// Open this long, an order is shown in amber so it is not forgotten.
+  static const _longOpen = Duration(minutes: 45);
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final age = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(summary.order.createdAt));
+    final order = summary.order;
+    final age = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(order.createdAt));
+    final long = age >= _longOpen;
+    final type = OrderType.parse(order.orderType);
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => openPos(context, summary.order.id),
+        onTap: () => openPos(context, order.id),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -91,20 +97,42 @@ class _OrderCard extends StatelessWidget {
             children: [
               Row(
                 children: [
+                  Icon(orderTypeIcon(type), size: 20, color: AppColors.accent, semanticLabel: type.label),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(summary.reference, style: t.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
                   if (summary.hasUnsent) const StatusChip(label: 'Not sent', color: AppColors.warning),
                 ],
               ),
-              const Spacer(),
               Text(
-                '${summary.itemCount} item(s) · ${_age(age)}',
-                style: t.bodyMedium,
+                '${summary.itemCount} item(s) · by ${order.createdByName}',
+                style: t.bodyMedium?.copyWith(color: Colors.black54),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              Text(formatMoney(summary.total), style: t.titleLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+              const Spacer(),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      formatMoney(summary.total),
+                      style: t.titleLarge?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Icon(Icons.schedule, size: 16, color: long ? AppColors.warning : Colors.black45),
+                  const SizedBox(width: 4),
+                  Text(
+                    _age(age),
+                    style: t.bodyMedium?.copyWith(
+                      color: long ? AppColors.warning : Colors.black54,
+                      fontWeight: long ? FontWeight.w600 : null,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -112,6 +140,12 @@ class _OrderCard extends StatelessWidget {
     );
   }
 }
+
+IconData orderTypeIcon(OrderType type) => switch (type) {
+  OrderType.takeaway => Icons.shopping_bag_outlined,
+  OrderType.dineIn => Icons.table_restaurant_outlined,
+  OrderType.delivery => Icons.delivery_dining_outlined,
+};
 
 String _age(Duration d) {
   if (d.inMinutes < 60) return '${d.inMinutes < 0 ? 0 : d.inMinutes} min';

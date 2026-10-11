@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/host/host_connectivity.dart';
 import '../core/security/permissions.dart';
 import '../features/auth/presentation/lock_screen.dart';
 import '../features/auth/presentation/staff_screen.dart';
 import '../features/bills/presentation/bills_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
+import '../features/devices/presentation/connected_devices_screen.dart';
 import '../features/expenses/presentation/expenses_screen.dart';
 import '../features/menu/presentation/menu_admin_screen.dart';
 import '../features/orders/presentation/kitchen_screen.dart';
@@ -123,7 +125,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final appBar = AppBar(
       title: Text(items[_index].label),
       actions: [
-        const _LocalOnlyChip(),
+        const _ConnectionChip(),
         const _ShiftChip(),
         const _PrintStatusButton(),
         _UserMenu(actor: actor),
@@ -220,16 +222,60 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 }
 
-class _LocalOnlyChip extends StatelessWidget {
-  const _LocalOnlyChip();
+/// Whether waiter phones and kitchen displays can reach this till, and how
+/// many are connected right now. Owners tap it to manage devices.
+class _ConnectionChip extends ConsumerWidget {
+  const _ConnectionChip();
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (screenSizeOf(context) == ScreenSize.phone) return const SizedBox.shrink();
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 4),
+    final s = ref.watch(hostStatusProvider).value ?? const HostStatus();
+    final (label, color, icon, tip) = switch (s) {
+      HostStatus(:final problem?) => ('Phones: problem', AppColors.danger, Icons.wifi_off, problem),
+      HostStatus(lanRunning: true, cloudEnrolled: true, cloudConnected: false) => (
+        'Phones: ${s.liveDevices} live',
+        AppColors.warning,
+        Icons.cloud_off_outlined,
+        'Phones on the café Wi-Fi can connect. The cloud relay is not connected, so phones off the Wi-Fi '
+            'cannot reach this till.',
+      ),
+      HostStatus(lanRunning: true) => (
+        'Phones: ${s.liveDevices} live',
+        s.liveDevices > 0 ? AppColors.success : AppColors.info,
+        Icons.phonelink_ring_outlined,
+        '${s.liveDevices} phone(s) or kitchen display(s) connected now. Keep this app open: closing it '
+            'disconnects them.',
+      ),
+      HostStatus(cloudEnrolled: true) => (
+        s.cloudConnected ? 'Cloud only' : 'Cloud offline',
+        s.cloudConnected ? AppColors.info : AppColors.warning,
+        s.cloudConnected ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+        'Phone connections over the café Wi-Fi are off.',
+      ),
+      _ => (
+        'This till only',
+        AppColors.info,
+        Icons.phonelink_lock_outlined,
+        platformCanHost
+            ? 'Sales are saved on this PC. Waiter phones are not connected; an owner can turn them on in '
+                  'Settings → Connected devices.'
+            : 'Sales are saved on this device.',
+      ),
+    };
+    final canManage = platformCanHost && (ref.watch(sessionProvider)?.can(Permission.manageDevices) ?? false);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Tooltip(
-        message: 'All data is saved on this device only. There is no cloud sync.',
-        child: StatusChip(label: 'This device only', color: AppColors.info, icon: Icons.phonelink_lock_outlined),
+        message: tip,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: canManage
+              ? () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute<void>(builder: (_) => const ConnectedDevicesScreen()))
+              : null,
+          child: StatusChip(label: label, color: color, icon: icon),
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/database/app_database.dart';
+import '../core/host/host_connectivity.dart';
 import '../core/security/permissions.dart';
 import '../features/settings/application/printer_service.dart';
 import '../features/shifts/application/shift_service.dart';
@@ -219,6 +220,15 @@ final printCountsProvider = StreamProvider<PrintQueueCounts>(
 final shiftSummaryProvider = FutureProvider.family<ShiftSummary, String>(
   (ref, id) => ref.watch(servicesProvider).shifts.summary(id),
 );
+
+/// Phone and cloud connections of this POS, updated as they change.
+final hostStatusProvider = StreamProvider<HostStatus>((ref) async* {
+  final host = ref.watch(runtimeProvider).host;
+  yield host.status;
+  await for (final _ in host.changes) {
+    yield host.status;
+  }
+});
 
 /// The device runtime (waiter / kitchen mode only).
 final deviceRuntimeProvider = Provider<DeviceRuntime>((ref) {

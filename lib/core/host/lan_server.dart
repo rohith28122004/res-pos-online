@@ -33,6 +33,13 @@ class LanServer {
   int? get port => _server?.port;
   int get connectedSockets => _sockets.length;
 
+  /// Called when a device's live connection opens or closes.
+  void Function()? onSocketsChanged;
+
+  void _drop(_DeviceSocket s) {
+    if (_sockets.remove(s)) onSocketsChanged?.call();
+  }
+
   /// Starts listening on all IPv4 interfaces (port 0 picks a free port).
   Future<void> start({int port = 47821, InternetAddress? address}) async {
     if (_server != null) return;
@@ -143,10 +150,11 @@ class LanServer {
       authorization: r.headers.value(HttpHeaders.authorizationHeader),
     );
     _sockets.add(s);
+    onSocketsChanged?.call();
     ws.listen(
       (_) {}, // Read-only socket: commands go through POST /v1/commands.
-      onDone: () => _sockets.remove(s),
-      onError: (_) => _sockets.remove(s),
+      onDone: () => _drop(s),
+      onError: (_) => _drop(s),
       cancelOnError: true,
     );
     s.revalidate = Timer.periodic(_revalidateEvery, (_) => unawaited(_revalidate(s)));
@@ -161,7 +169,7 @@ class LanServer {
       await api.authenticate(s.deviceHeader, s.authorization);
     } on ProtocolException catch (e) {
       await s.close(4401, e.code);
-      _sockets.remove(s);
+      _drop(s);
     }
   }
 
@@ -197,7 +205,7 @@ class LanServer {
       } while (s.pushAgain && !s.closed);
     } on Object {
       await s.close(1011, 'POS error');
-      _sockets.remove(s);
+      _drop(s);
     } finally {
       s.pushing = false;
     }

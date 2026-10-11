@@ -62,7 +62,13 @@ ThemeData buildTheme() {
         ),
       ),
     ),
-    navigationRailTheme: const NavigationRailThemeData(backgroundColor: AppColors.surfaceDim),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: AppColors.surfaceDim,
+      indicatorColor: AppColors.accent.withValues(alpha: 0.16),
+      selectedIconTheme: const IconThemeData(color: AppColors.accent),
+      selectedLabelTextStyle: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700),
+    ),
+    navigationBarTheme: NavigationBarThemeData(indicatorColor: AppColors.accent.withValues(alpha: 0.16)),
     dividerTheme: const DividerThemeData(color: Color(0xFFE6DED3)),
   );
 }

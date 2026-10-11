@@ -256,8 +256,13 @@ void main() {
     final alarms = <Map<String, Object?>>[];
     final sub = kitchen.alarms.listen(alarms.add);
     addTearDown(sub.cancel);
+    var socketChanges = 0;
+    server.onSocketsChanged = () => socketChanges++;
     await kitchen.start();
     await eventually(() async => kitchen.currentStatus.live ? true : null);
+    // The POS status chip counts live devices and is told when it changes.
+    expect(server.connectedSockets, 1);
+    expect(socketChanges, greaterThanOrEqualTo(1));
 
     final waiterPhone = await pairedPhone(
       DeviceRole.waiter,
@@ -282,6 +287,8 @@ void main() {
 
     // Reconnecting replays nothing new and sounds nothing again.
     await kitchen.stop();
+    await eventually(() async => server.connectedSockets == 0 ? true : null);
+    expect(socketChanges, greaterThanOrEqualTo(2));
     await kitchen.start();
     await eventually(() async => kitchen.currentStatus.live ? true : null);
     await Future<void>.delayed(const Duration(milliseconds: 300));
