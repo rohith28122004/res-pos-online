@@ -1,0 +1,58 @@
+// CaféDesk Online cloud relay — Wrangler configuration.
+//
+// Local development only until the owner explicitly instructs a deployment
+// (see docs/CLOUDFLARE_SETUP.md, "Deployment runbook"). `wrangler dev` and the
+// Vitest suite use local simulations of every binding below; nothing here
+// touches a Cloudflare account.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cafedesk-online-dev",
+  "main": "src/index.ts",
+  // Verified against the bundled workerd (2026-10-06). Includes
+  // web_socket_auto_reply_to_close (default from 2026-04-07).
+  "compatibility_date": "2026-10-01",
+  "observability": {
+    "enabled": true
+  },
+  // Restaurant metadata, credentials, the immutable event ledger and the
+  // report projections. `database_id` is filled in by the owner from
+  // `wrangler d1 create` output when (and only when) deploying.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cafedesk-online-dev",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // Private bucket: encrypted backup archives and menu media. No public
+  // access, no custom domain, no r2.dev URL.
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "cafedesk-online-dev"
+    }
+  ],
+  // One RestaurantHub per restaurant (idFromName(restaurantId)): hibernating
+  // WebSockets and the durable command mailbox, stored in SQLite.
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "HUB",
+        "class_name": "RestaurantHub"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RestaurantHub"]
+    }
+  ],
+  "vars": {
+    // Upper bound for one encrypted backup archive (bytes). The Worker buffers
+    // the body to verify its SHA-256 before storing it.
+    "MAX_BACKUP_BYTES": "52428800",
+    // Upper bound for one media object (bytes).
+    "MAX_MEDIA_BYTES": "5242880"
+  }
+}

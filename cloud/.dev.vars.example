@@ -1,0 +1,15 @@
+# Copy to `.dev.vars` (git-ignored) for local overrides with `wrangler dev`.
+#
+# The CaféDesk Online Worker needs NO secrets today: host and device
+# credentials are random per restaurant and only their SHA-256 hashes live in
+# D1; staff sessions are verified with each restaurant's public Ed25519 key.
+# Never put Cloudflare API tokens or account credentials here.
+#
+# Optional overrides of the non-secret limits in wrangler.jsonc "vars":
+# MAX_BACKUP_BYTES=52428800
+# MAX_MEDIA_BYTES=5242880
+#
+# If a secret is ever added, use a placeholder here, the real value only in
+# your local .dev.vars, and `wrangler secret put NAME` for a deployment (which
+# needs the owner's explicit instruction):
+# EXAMPLE_SECRET=replace-me-locally

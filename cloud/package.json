@@ -1,0 +1,29 @@
+{
+  "name": "cafedesk-online-cloud",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CaféDesk Online Cloudflare relay: Worker API, restaurant Durable Object, D1 ledger and projections, private R2 backups.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "pretypecheck": "npm run cf-typegen",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p test/tsconfig.json",
+    "cf-typegen": "wrangler types --include-runtime=true src/worker-configuration.d.ts",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "issue-enrollment-code": "node scripts/issue-enrollment-code.mjs",
+    "rebuild-projections": "node scripts/rebuild-projections.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.4.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.11",
+    "wrangler": "4.149.0"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}

@@ -62,10 +62,15 @@ external dependency · ⬜ not started
 - ⬜ Host screens: connected devices, pair device, host status
 
 ### 5. Cloudflare relay (local)
-- ⬜ Worker API, restaurant Durable Object (hibernating sockets, durable mailbox), D1 ledger and
-  projections, private R2
-- ⬜ Enrollment, device registry, event ingest with dedupe/gap detection, cloud reports
-- ⬜ Cross-restaurant isolation tests
+- ✅ `cloud/`: Worker API (all PROTOCOL §8 routes), `RestaurantHub` Durable Object (hibernating
+  sockets, durable mailbox in DO SQLite, 30-minute expiry, quarantine on new epoch, relay
+  with 503/504), D1 ledger + report projections (rebuildable), private R2 backups and menu
+  images. Local only; nothing deployed
+- ✅ Enrollment with single-use operator codes; device registry from host events; ingest with
+  gap/duplicate/content-mismatch checks; report cards from `REPORT_DEFINITIONS.md`
+- ✅ Cross-restaurant isolation tests; `docs/CLOUDFLARE_SETUP.md` (local dev, runbook for a
+  later deployment that needs the owner's instruction)
+- ⬜ POS cloud connector (enroll, upload, relay socket) and phone cloud route
 
 ### 6. Fallback, recovery, sync status, restore
 - ⬜ LAN-first, cloud fallback with the same command id
@@ -85,7 +90,7 @@ external dependency · ⬜ not started
 | `dart format` | clean |
 | `flutter analyze` | no issues |
 | Flutter tests | 204 passed, 0 failed (20 min on a loaded PC; ~1.5 min normally) |
-| Cloud tests | not started |
+| Cloud tests | `npm run typecheck` exit 0; `vitest run` 89 passed (9 files) |
 | Android / Windows builds | not built yet in this repo |
 | Physical devices / printers | not run |
 
@@ -115,6 +120,11 @@ external dependency · ⬜ not started
   30-minute review rule, per-person command isolation. Found and fixed: concurrent
   `deliverNow()` calls returned before the run finished; background work could outlive
   `dispose()`. 204 tests passed.
+- 2026-10-11 — Cloud relay built under `cloud/` (by a delegated agent; checked here):
+  `npm run typecheck` exit 0 and `npx vitest run` 89 passed, re-run in this session. Local
+  Miniflare/workerd only. Deviations recorded in `docs/CLOUDFLARE_SETUP.md`: the renamed test
+  package `@cloudflare/vitest-plugin`; event pages carry `through` (matches the LAN host);
+  stricter session checks (epoch, role from `staff.access_changed`).
 
 ## Assumptions and decisions
 
