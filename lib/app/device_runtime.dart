@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:meta/meta.dart';
+
 import '../core/security/secret_store.dart';
 import '../core/sync/client_database.dart';
 import '../core/sync/cloud_route.dart';
@@ -26,6 +28,10 @@ class DeviceRuntime {
     );
     return DeviceRuntime._(db, sync);
   }
+
+  /// Wraps an already-open database and engine (widget tests).
+  @visibleForTesting
+  factory DeviceRuntime.forTesting(ClientDatabase db, DeviceSync sync) => DeviceRuntime._(db, sync);
 
   static String get platformName => Platform.operatingSystem;
 

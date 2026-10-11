@@ -26,7 +26,9 @@ class _KitchenBoardScreenState extends ConsumerState<KitchenBoardScreen> {
   bool _muted = false;
   bool _awake = false;
   StreamSubscription<Map<String, Object?>>? _alarms;
-  final _player = AudioPlayer();
+
+  /// Created on the first alarm (no audio resources until needed).
+  AudioPlayer? _player;
   Timer? _tick;
 
   @override
@@ -43,7 +45,8 @@ class _KitchenBoardScreenState extends ConsumerState<KitchenBoardScreen> {
   void dispose() {
     unawaited(_alarms?.cancel());
     _tick?.cancel();
-    unawaited(_player.dispose());
+    final player = _player;
+    if (player != null) unawaited(player.dispose());
     if (_awake) unawaited(WakelockPlus.disable());
     super.dispose();
   }
@@ -52,7 +55,8 @@ class _KitchenBoardScreenState extends ConsumerState<KitchenBoardScreen> {
     if (_muted) return;
     unawaited(HapticFeedback.heavyImpact());
     try {
-      await _player.play(AssetSource('sounds/new_ticket.wav'));
+      final player = _player ??= AudioPlayer();
+      await player.play(AssetSource('sounds/new_ticket.wav'));
     } on Object {
       // No audio output: the card still appears.
     }
