@@ -139,8 +139,8 @@ external dependency · ⬜ not started
     Kitchen tile, kitchen displays say "switched off", kitchen invites refused, waiters get
     **To prepare** (POS and phone) and mark orders ready; the POS enforces it
     (`OrderService.canUpdateTickets`, dispatcher check for waiter phones).
-- 🟡 Cloud: waiter `ticket.set_status` + `settings.changed` relay — tested locally (93 passed);
-  **not deployed yet** (waits for the owner, see run log)
+- ✅ Cloud: waiter `ticket.set_status` + `settings.changed` relay — 93 tests passed; deployed on
+  the owner's instruction (version `8e0a7c9e…`, run log)
 
 ## Builds and checks (latest run)
 
@@ -259,6 +259,12 @@ external dependency · ⬜ not started
   Wi-Fi, but not through the cloud (the live relay still refuses that for waiters), and the
   kitchen switch reaches phones on their next refresh rather than at once when they are on
   the cloud route.
+- 2026-10-11 — **Cloud redeployed on the owner's instruction** ("yes deploy it"):
+  `wrangler deploy --env production` from `cloud/` at 5631c89's cloud code → version
+  `8e0a7c9e-d2d1-4e1b-948a-51ea55908abb`. Live checks: health 200 (`no-store`, `nosniff`), plain
+  http 403, no/bogus credential 401, malformed enroll 400, unknown route 404. No test data
+  written. Waiters can now mark orders ready through the cloud when the kitchen is off, and
+  phones on the cloud route get kitchen on/off at once.
 
 ## Assumptions and decisions
 

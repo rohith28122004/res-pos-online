@@ -183,7 +183,7 @@ bundled workerd; includes `web_socket_auto_reply_to_close`).
 | D1 | `cafedesk-online`, id `c511424f-2485-49d9-bee5-124ce4d8a8c2`, location hint APAC; migration `0001_initial_schema.sql` applied |
 | R2 | `cafedesk-online`, location hint APAC, private (no r2.dev URL, no custom domain, no CORS) |
 | Durable Object | `RestaurantHub`, SQLite storage, migration tag `v1` |
-| Versions | `e52535a1-7e41-4c31-93ab-65983351897a` (first), `91be11a3-0b37-472b-8f38-8576c2d69484` (https-only; current) |
+| Versions | `e52535a1-7e41-4c31-93ab-65983351897a` (first), `91be11a3-0b37-472b-8f38-8576c2d69484` (https-only), `8e0a7c9e-d2d1-4e1b-948a-51ea55908abb` (2026-10-11: waiter may mark ready when the kitchen is off; `settings.changed` to phones; current) |
 | Secrets | none (the Worker needs none) |
 
 Smoke checks run against the deployed URL: `GET /v1/health` → 200 with `no-store` and
