@@ -175,7 +175,23 @@ external dependency · ⬜ not started
 - 2026-10-11 — Owner decided not to build the encrypted cloud backup. Added §12 tests
   (identity separation, replay order, phone restart with a queued order, snapshot/live race)
   and the phone's Connection details. Phone replay now sorts a page by sequence before
-  applying it (an out-of-order page could have skipped an update).
+  applying it (an out-of-order page could have skipped an update). Flutter 241 passed, 2
+  skipped (opt-in end-to-end).
+- 2026-10-11 — Docs: connected architecture, pairing and security, test checklist + pilot
+  steps. Builds on this PC:
+  * Android **release** APK: **not built** — Smart App Control now blocks 3.47.6's Android
+    release `gen_snapshot.exe` (it built the offline APK the day before). Not worked around by
+    changing security settings.
+  * Android **test** APK built instead: `flutter build apk --profile --target-platform
+    android-arm64` → `dist\CafeDeskOnline-1.0.0+1-android-arm64-TEST-profile-debug-signed.apk`
+    (57,553,782 bytes, SHA-256 `5b0ae2a0…7aab13d`, full hash in the `.sha256` file).
+    `aapt2 dump badging`: package `com.cafedesk.online`, label "CaféDesk Online", minSdk 24,
+    INTERNET + CAMERA (camera not required). arm64 phones only; debug-signed; for testing.
+  * Windows bundle: **not built** — `flutter_secure_storage_windows` needs the Visual Studio
+    "C++ ATL" component (`atlstr.h`), which is not installed here. Waiting for the owner to
+    allow installing it (administrator prompt).
+  * Offline repo check (read-only): `C:\Users\rohit\projects\cafedesk` clean at `f65c4bb`,
+    origin `res-pos` — untouched.
 
 ## Assumptions and decisions
 

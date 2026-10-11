@@ -20,6 +20,12 @@ roots"). Full Kotlin compiles of the few plugin sources cost only seconds.
 Windows desktop builds also need **Developer Mode** (Settings → System → For developers),
 because Flutter links plugins with symlinks.
 
+CaféDesk Online also needs the Visual Studio component **C++ ATL for latest v143 build tools
+(x86 & x64)** (`Microsoft.VisualStudio.Component.VC.ATL`): `flutter_secure_storage_windows`
+(where the POS keeps its TLS and signing keys) includes `atlstr.h`. Without it the Windows
+build stops with `error C1083: Cannot open include file: 'atlstr.h'`. Add it in the Visual
+Studio Installer → Modify → Individual components (needs administrator approval).
+
 ### Why not the newest Flutter release?
 
 The development PC has **Windows Smart App Control** enforcing. It blocks unsigned executables
